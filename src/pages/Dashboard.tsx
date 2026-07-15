@@ -12,6 +12,7 @@ export default function Dashboard() {
   
   const [upcomingPrograms, setUpcomingPrograms] = useState<InkhawmProgramme[]>([]);
   const [recentRecords, setRecentRecords] = useState<ChurchRecord[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -19,6 +20,7 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     if (!isFirebaseConfigured || !db) return;
+    setError(null);
 
     try {
       const membersSnap = await getDocs(collection(db, 'members'));
@@ -41,8 +43,13 @@ export default function Dashboard() {
 
       const recordsData = recordsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChurchRecord));
       setRecentRecords(recordsData);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching dashboard data:", error);
+      if (error.code === 'permission-denied') {
+        setError('Missing or insufficient permissions. Please update your Firestore Security Rules to allow read access.');
+      } else {
+        setError('Failed to load dashboard data.');
+      }
     }
   };
 
@@ -75,6 +82,13 @@ export default function Dashboard() {
         <h1 className="text-2xl font-semibold tracking-tight uppercase">Dashboard Overview</h1>
         <p className="mt-1 text-stone-500 font-sans text-xs uppercase tracking-widest">Bethlehem Kohhran Administration</p>
       </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 text-sm font-sans">
+          <p className="font-bold uppercase tracking-widest text-[10px] mb-1">Database Error</p>
+          <p>{error}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (

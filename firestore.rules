@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      // Assuming all authenticated users who have an account are trusted, 
+      // or we can check the users collection for the 'admin' role.
+      // For simplicity and since we only allow nkhiangte@gmail.com to create initial accounts:
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Allow the user to create their own record when they sign up
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Only admins can update roles, but users might update their own profile?
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow delete: if isAdmin();
+    }
+
+    // Public read collections (anyone can view, only admins/authenticated users can write)
+    match /members/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /upas/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /programs/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /records/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /tawngtai/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /damlokan/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /archives/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /committees/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /fellowships/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+  }
+}

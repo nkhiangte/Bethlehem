@@ -15,6 +15,7 @@ import Records from './pages/Records';
 import Archive from './pages/Archive';
 import CommitteePage from './pages/Committee';
 import FellowshipPage from './pages/Fellowship';
+import Users from './pages/Users';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/fellowship" element={<FellowshipPage />} />
             <Route path="/archive" element={<Archive />} />
             <Route path="/records" element={<Records />} />
+            <Route path="/users" element={<Users />} />
           </Routes>
         </Layout>
       </BrowserRouter>

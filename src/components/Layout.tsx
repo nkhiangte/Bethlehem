@@ -13,7 +13,8 @@ import {
   Users,
   HeartHandshake,
   LogOut,
-  LogIn
+  LogIn,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { isFirebaseConfigured } from '../lib/firebase';
@@ -36,7 +37,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, profile, isAdmin, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-[#2d2d2a] font-serif flex">
@@ -86,18 +87,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link
+              to="/users"
+              className={cn(
+                "flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-colors uppercase tracking-widest mt-4 border border-white/10",
+                location.pathname === '/users'
+                  ? "bg-amber-500/20 text-amber-300" 
+                  : "text-amber-200/70 hover:bg-amber-500/10 hover:text-amber-300"
+              )}
+              onClick={() => setSidebarOpen(false)}
+            >
+              <ShieldCheck className={cn("w-5 h-5 mr-3 shrink-0", location.pathname === '/users' ? "text-amber-300" : "text-amber-200/70")} />
+              Users
+            </Link>
+          )}
         </nav>
         <div className="absolute bottom-0 w-full p-6 border-t border-white/10 font-sans">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center italic">
-               {user ? user.email?.charAt(0).toUpperCase() : 'L'}
+             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center italic font-serif">
+               {profile ? profile.fullName.charAt(0).toUpperCase() : (user ? user.email?.charAt(0).toUpperCase() : 'G')}
              </div>
              <div>
                <p className="text-xs font-semibold uppercase tracking-widest">
-                 {user ? 'Admin' : 'Secretary'}
+                 {isAdmin ? 'Admin' : (user ? 'User' : 'Guest')}
                </p>
                <p className="text-[10px] opacity-70 truncate w-32">
-                 {user ? user.email : 'Upa Lalthlamuana'}
+                 {profile ? profile.fullName : (user ? user.email : 'Not signed in')}
                </p>
              </div>
           </div>
