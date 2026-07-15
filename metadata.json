@@ -1,0 +1,6 @@
+{
+  "name": "Bethlehem Kohhran App",
+  "description": "Church management app for Bethlehem Kohhran featuring programs, elder list, member directory, and digital records.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
