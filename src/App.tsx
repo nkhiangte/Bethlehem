@@ -5,6 +5,7 @@
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { AuthProvider } from './lib/auth';
 import Dashboard from './pages/Dashboard';
 import Programs from './pages/Programs';
 import Elders from './pages/Elders';
@@ -17,20 +18,22 @@ import FellowshipPage from './pages/Fellowship';
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/programs" element={<Programs />} />
-          <Route path="/elders" element={<Elders />} />
-          <Route path="/upa-bial" element={<UpaBial />} />
-          <Route path="/directory" element={<Directory />} />
-          <Route path="/committee" element={<CommitteePage />} />
-          <Route path="/fellowship" element={<FellowshipPage />} />
-          <Route path="/archive" element={<Archive />} />
-          <Route path="/records" element={<Records />} />
-        </Routes>
-      </Layout>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/programs" element={<Programs />} />
+            <Route path="/elders" element={<Elders />} />
+            <Route path="/upa-bial" element={<UpaBial />} />
+            <Route path="/directory" element={<Directory />} />
+            <Route path="/committee" element={<CommitteePage />} />
+            <Route path="/fellowship" element={<FellowshipPage />} />
+            <Route path="/archive" element={<Archive />} />
+            <Route path="/records" element={<Records />} />
+          </Routes>
+        </Layout>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

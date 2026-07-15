@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -11,10 +11,14 @@ import {
   Map,
   History,
   Users,
-  HeartHandshake
+  HeartHandshake,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { isFirebaseConfigured } from '../lib/firebase';
+import { useAuth } from '../lib/auth';
+import { LoginModal } from './LoginModal';
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -30,7 +34,9 @@ const navItems = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-[#2d2d2a] font-serif flex">
@@ -83,10 +89,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="absolute bottom-0 w-full p-6 border-t border-white/10 font-sans">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center italic">L</div>
+             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center italic">
+               {user ? user.email?.charAt(0).toUpperCase() : 'L'}
+             </div>
              <div>
-               <p className="text-xs font-semibold uppercase tracking-widest">Secretary</p>
-               <p className="text-[10px] opacity-70">Upa Lalthlamuana</p>
+               <p className="text-xs font-semibold uppercase tracking-widest">
+                 {user ? 'Admin' : 'Secretary'}
+               </p>
+               <p className="text-[10px] opacity-70 truncate w-32">
+                 {user ? user.email : 'Upa Lalthlamuana'}
+               </p>
              </div>
           </div>
         </div>
@@ -102,12 +114,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="w-6 h-6" />
           </button>
           
-          <div className="flex-1 flex justify-end">
+          <div className="flex-1 flex justify-end gap-3 items-center">
             {!isFirebaseConfigured && (
               <div className="flex items-center text-[10px] font-bold uppercase tracking-widest bg-[#fcfaf7] border border-[#ecece0] text-stone-500 px-4 py-2 rounded-full font-sans">
                 <span className="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></span>
                 Preview Mode
               </div>
+            )}
+            
+            {user ? (
+              <button 
+                onClick={() => logout()}
+                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest bg-stone-100 hover:bg-stone-200 text-stone-600 px-4 py-2 rounded-full font-sans transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
+            ) : (
+              <button 
+                onClick={() => setIsLoginModalOpen(true)}
+                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest bg-[#5A5A40] hover:bg-[#4a4a35] text-white px-4 py-2 rounded-full font-sans transition-colors"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Sign In
+              </button>
             )}
           </div>
         </header>
@@ -118,6 +148,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      {isLoginModalOpen && (
+        <LoginModal onClose={() => setIsLoginModalOpen(false)} />
+      )}
     </div>
   );
 }
