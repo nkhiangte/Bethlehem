@@ -505,6 +505,15 @@ export default function UpaBial() {
                       {selectedUpa.bio}
                     </p>
                   )}
+                  {selectedUpa.mapImageUrl && (
+                    <div className="mt-4 border-t border-[#ecece0] pt-4">
+                      <h3 className="text-[10px] font-bold text-[#5A5A40] uppercase tracking-widest mb-2 font-sans">Bial Map</h3>
+                      {selectedUpa.mapDescription && (
+                        <p className="text-xs text-stone-500 mb-3 font-sans italic">{selectedUpa.mapDescription}</p>
+                      )}
+                      <img src={selectedUpa.mapImageUrl} alt={`${selectedUpa.bial} Map`} className="w-full max-w-2xl mx-auto rounded-2xl border border-[#ecece0] object-contain bg-stone-50" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
                 </div>
 
                 {/* Member search bar */}
@@ -609,8 +618,8 @@ export default function UpaBial() {
       {/* Bial Modal */}
       {isBialModalOpen && (
         <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-lg shadow-xl border border-[#e0e0d5] overflow-hidden">
-            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white">
+          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-3xl shadow-xl border border-[#e0e0d5] overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white shrink-0">
               <h2 className="text-xl font-serif italic text-[#5A5A40]">
                 {editingUpa ? 'Edit Bial / Upa' : 'Add New Bial / Upa'}
               </h2>
@@ -619,7 +628,8 @@ export default function UpaBial() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 font-sans">
+            <div className="p-6 font-sans overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Bial Area Name (Add name of Upa Bial)</label>
                 <input 
@@ -653,7 +663,7 @@ export default function UpaBial() {
                 />
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Biography / Remarks (Optional)</label>
                 <textarea 
                   value={elderBio} 
@@ -663,7 +673,7 @@ export default function UpaBial() {
                   className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] resize-none"
                 />
               </div>
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Bial Map Description (Optional)</label>
                 <textarea 
                   value={mapDescription} 
@@ -701,9 +711,10 @@ export default function UpaBial() {
                   />
                 </div>
               </div>
+              </div>
             </div>
 
-            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3">
+            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 shrink-0">
               <button 
                 onClick={() => setIsBialModalOpen(false)}
                 disabled={isUploading}
@@ -726,8 +737,8 @@ export default function UpaBial() {
       {/* Member Modal */}
       {isMemberModalOpen && (
         <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-lg shadow-xl border border-[#e0e0d5] overflow-hidden">
-            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white">
+          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-lg shadow-xl border border-[#e0e0d5] overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white shrink-0">
               <h2 className="text-xl font-serif italic text-[#5A5A40]">
                 {editingMember ? 'Edit Family Member' : 'Add Family Member'}
               </h2>
@@ -736,7 +747,7 @@ export default function UpaBial() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 font-sans">
+            <div className="p-6 space-y-4 font-sans overflow-y-auto">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Select Upa Bial (Respective Bial)</label>
                 <select 
@@ -796,7 +807,7 @@ export default function UpaBial() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3">
+            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 shrink-0">
               <button 
                 onClick={() => setIsMemberModalOpen(false)}
                 className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest text-stone-500 hover:bg-stone-50 font-sans border border-[#ecece0]"

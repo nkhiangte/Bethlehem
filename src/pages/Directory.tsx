@@ -236,9 +236,9 @@ export default function Directory() {
 
       {/* Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4">
-          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-lg shadow-xl border border-[#e0e0d5] overflow-hidden">
-            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white">
+        <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-lg shadow-xl border border-[#e0e0d5] overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white shrink-0">
               <h2 className="text-xl font-serif italic text-[#5A5A40]">
                 {editingMember ? 'Edit Member Details' : 'New Member Details'}
               </h2>
@@ -247,7 +247,7 @@ export default function Directory() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 font-sans">
+            <div className="p-6 space-y-4 font-sans overflow-y-auto">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Name</label>
                 <input 
@@ -304,7 +304,7 @@ export default function Directory() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3">
+            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 shrink-0">
               <button 
                 onClick={() => setIsModalOpen(false)}
                 className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest text-stone-500 hover:bg-stone-50 font-sans border border-[#ecece0]"

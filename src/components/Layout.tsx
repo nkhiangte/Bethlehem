@@ -60,7 +60,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}>
         <div className="flex items-center justify-between h-20 px-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <img src="https://i.ibb.co/JWyRhYd1/syn-lo.png" alt="Bethlehem Kohhran Logo" className="w-10 h-10 object-contain" />
+            <img src="https://i.ibb.co/84LB6br0/syn-lo.png" alt="Bethlehem Kohhran Logo" className="w-10 h-10 object-contain" />
             <div>
               <span className="text-lg font-semibold tracking-tight uppercase block leading-tight">Bethlehem</span>
               <span className="text-[10px] uppercase tracking-[0.2em] opacity-80 font-sans block leading-none mt-1">Kohhran</span>
