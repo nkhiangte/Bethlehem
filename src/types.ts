@@ -170,9 +170,17 @@ export interface NewsArticle {
   author?: string;
 }
 
+export interface GalleryFolder {
+  id: string;
+  name: string;
+  parentFolderId: string | null;
+  date: string;
+}
+
 export interface GalleryImage {
   id: string;
   title: string;
   imageUrl: string;
   date: string;
+  folderId?: string | null;
 }
