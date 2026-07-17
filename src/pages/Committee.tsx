@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Plus, X, Pencil, Trash2, Users } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { useAuth } from '../lib/auth';
 import { Committee, CommitteeBearer, DEFAULT_COMMITTEES, DEFAULT_COMMITTEE_BEARERS } from '../types';
 
 export default function CommitteePage() {
+  const { isAdmin } = useAuth();
   const [committees, setCommittees] = useState<Committee[]>([]);
   const [loading, setLoading] = useState(true);
 

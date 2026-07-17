@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Plus, X, Pencil, Trash2, HeartHandshake } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { useAuth } from '../lib/auth';
 import { Fellowship, FellowshipBearer, DEFAULT_FELLOWSHIPS, DEFAULT_FELLOWSHIP_BEARERS } from '../types';
 
 export default function FellowshipPage() {
+  const { isAdmin } = useAuth();
   const [fellowships, setFellowships] = useState<Fellowship[]>([]);
   const [loading, setLoading] = useState(true);
 

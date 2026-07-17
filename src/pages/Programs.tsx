@@ -3,8 +3,10 @@ import { Clock, User, Plus, X, Pencil, Trash2, Calendar } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { InkhawmProgramme, PROGRAM_TITLES, DEFAULT_PROGRAM_ROLES, TawngtaiHruaituMonth, TawngtaiHruaituDay } from '../types';
+import { useAuth } from '../lib/auth';
 
 export default function Programs() {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'inkhawm' | 'tawngtai'>('inkhawm');
   const [programs, setPrograms] = useState<InkhawmProgramme[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,14 @@ export default function Programs() {
       const q = query(collection(db, 'programs'), orderBy('date', 'desc'));
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as InkhawmProgramme));
+      
+      data.sort((a, b) => {
+        if (a.date !== b.date) {
+           return b.date.localeCompare(a.date);
+        }
+        return (a.time || '').localeCompare(b.time || '');
+      });
+
       setPrograms(data);
     } catch (error) {
       console.error("Error fetching programs:", error);

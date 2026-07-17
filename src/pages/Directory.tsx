@@ -1,3 +1,4 @@
+import { useAuth } from '../lib/auth';
 import { useState, useEffect } from 'react';
 import { Search, MapPin, Phone, Home, Plus, X, Pencil, Trash2 } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
@@ -5,6 +6,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy 
 import { Member } from '../types';
 
 export default function Directory() {
+  const { isAdmin } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,13 +119,15 @@ export default function Directory() {
           <h1 className="text-2xl font-semibold tracking-tight uppercase">Member Directory</h1>
           <p className="mt-1 text-stone-500 font-sans text-xs uppercase tracking-widest">Church members and contact information</p>
         </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Member
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={() => handleOpenModal()}
+            className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Member
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden">
@@ -195,22 +199,26 @@ export default function Directory() {
                         {member.familyHead}
                       </div>
                     </td>
-                    <td className="px-6 py-5 whitespace-nowrap text-right text-xs">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleOpenModal(member)} 
-                          className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-[#fcfaf7] border border-[#ecece0] rounded-lg transition"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(member.id)} 
-                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                    {isAdmin ? (
+                      <td className="px-6 py-5 whitespace-nowrap text-right text-xs">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => handleOpenModal(member)} 
+                            className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-[#fcfaf7] border border-[#ecece0] rounded-lg transition"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(member.id)} 
+                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    ) : (
+                      <td className="px-6 py-5 whitespace-nowrap text-right text-xs"></td>
+                    )}
                   </tr>
                 ))}
                 {filteredMembers.length === 0 && (
@@ -274,7 +282,7 @@ export default function Directory() {
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Upa Bial Area (Must match Elder's area name)</label>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Upa Bial Area (Must match Upa's area name)</label>
                 <input 
                   type="text" 
                   value={upaBial} 

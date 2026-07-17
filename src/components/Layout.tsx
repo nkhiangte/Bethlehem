@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
+  Home as HomeIcon,
   CalendarDays, 
   UsersRound, 
   BookOpen, 
   ArchiveRestore,
+  Image as ImageIcon,
   Menu,
   X,
   Map,
@@ -22,15 +24,17 @@ import { useAuth } from '../lib/auth';
 import { LoginModal } from './LoginModal';
 
 const navItems = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { name: 'Home', path: '/', icon: HomeIcon },
+  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Programs', path: '/programs', icon: CalendarDays },
-  { name: 'Elders', path: '/elders', icon: UsersRound },
+  { name: 'Kohhran Committee', path: '/elders', icon: UsersRound },
   { name: 'Upa Bial', path: '/upa-bial', icon: Map },
   { name: 'Directory', path: '/directory', icon: BookOpen },
   { name: 'Committee', path: '/committee', icon: Users },
   { name: 'Fellowship', path: '/fellowship', icon: HeartHandshake },
   { name: 'Archive', path: '/archive', icon: History },
   { name: 'Records', path: '/records', icon: ArchiveRestore },
+  { name: 'Gallery', path: '/gallery', icon: ImageIcon },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

@@ -1,3 +1,4 @@
+import { useAuth } from '../lib/auth';
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { Filter, Plus, X, Pencil, Trash2, Upload } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
@@ -18,6 +19,7 @@ const recordTypes: { value: RecordType | 'all', label: string }[] = [
 ];
 
 export default function Records() {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'records' | 'damlokan'>('records');
   const [filterType, setFilterType] = useState<RecordType | 'all'>('all');
   

@@ -5,6 +5,8 @@ export interface Upa {
   bial: string; // Area
   phone: string;
   imageUrl?: string;
+  mapImageUrl?: string;
+  mapDescription?: string;
 }
 
 export interface Member {
@@ -158,4 +160,19 @@ export interface DamloKanRecord {
   name: string; // Hming
   month: string; // Thla
   upaBial: string; // Upa Bial
+}
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  content: string; // Rich text (HTML or Markdown)
+  date: string;
+  author?: string;
+}
+
+export interface GalleryImage {
+  id: string;
+  title: string;
+  imageUrl: string;
+  date: string;
 }

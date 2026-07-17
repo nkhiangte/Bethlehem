@@ -35,6 +35,14 @@ export default function Dashboard() {
       setProgramCount(allProgramsSnap.size);
       
       const programsData = programsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as InkhawmProgramme));
+      
+      programsData.sort((a, b) => {
+        if (a.date !== b.date) {
+           return b.date.localeCompare(a.date);
+        }
+        return (a.time || '').localeCompare(b.time || '');
+      });
+
       setUpcomingPrograms(programsData);
 
       const recordsSnap = await getDocs(query(collection(db, 'records'), orderBy('date', 'desc'), limit(5)));
@@ -60,7 +68,7 @@ export default function Dashboard() {
       icon: Users,
     },
     { 
-      name: 'Active Elders', 
+      name: 'Active Kohhran Committee', 
       value: upaCount, 
       icon: UserCircle2,
     },

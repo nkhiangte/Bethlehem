@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Calendar, Users, Plus, X, Pencil, Trash2, ChevronRight } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { useAuth } from '../lib/auth';
 import { ArchiveYear, DEFAULT_ARCHIVE_ROLES, ArchiveRole } from '../types';
 
 export default function Archive() {
+  const { isAdmin } = useAuth();
   const [archives, setArchives] = useState<ArchiveYear[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<ArchiveYear | null>(null);

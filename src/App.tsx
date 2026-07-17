@@ -6,6 +6,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AuthProvider } from './lib/auth';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Programs from './pages/Programs';
 import Elders from './pages/Elders';
@@ -16,6 +17,7 @@ import Archive from './pages/Archive';
 import CommitteePage from './pages/Committee';
 import FellowshipPage from './pages/Fellowship';
 import Users from './pages/Users';
+import Gallery from './pages/Gallery';
 
 export default function App() {
   return (
@@ -23,7 +25,8 @@ export default function App() {
       <BrowserRouter>
         <Layout>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/programs" element={<Programs />} />
             <Route path="/elders" element={<Elders />} />
             <Route path="/upa-bial" element={<UpaBial />} />
@@ -33,6 +36,7 @@ export default function App() {
             <Route path="/archive" element={<Archive />} />
             <Route path="/records" element={<Records />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/gallery" element={<Gallery />} />
           </Routes>
         </Layout>
       </BrowserRouter>

@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Phone, Users, Home, Search, ChevronRight, Plus, X, Pencil, Trash2 } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Upa, Member } from '../types';
+import { uploadImageToImgbb } from '../lib/imgbb';
+import { useAuth } from '../lib/auth';
 
 export default function UpaBial() {
+  const { isAdmin } = useAuth();
   const [upas, setUpas] = useState<Upa[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +27,12 @@ export default function UpaBial() {
   const [bialName, setBialName] = useState('');
   const [elderPhone, setElderPhone] = useState('');
   const [elderBio, setElderBio] = useState('');
+  const [elderImageUrl, setElderImageUrl] = useState('');
+  const [mapImageUrl, setMapImageUrl] = useState('');
+  const [mapDescription, setMapDescription] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedMapFile, setSelectedMapFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Family Member form states
   const [memberName, setMemberName] = useState('');
@@ -100,44 +109,57 @@ export default function UpaBial() {
   );
 
   // Admin Bial (Elder) Save Handler
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleMapFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedMapFile(e.target.files[0]);
+    }
+  };
+
   const handleSaveBial = async () => {
     if (!elderName || !bialName || !elderPhone) {
       alert("Khawngaihin a hming, bial leh phone number ziah hmaih suh.");
       return;
     }
 
-    const upaData = {
-      name: elderName,
-      bial: bialName,
-      phone: elderPhone,
-      bio: elderBio
-    };
-
     if (!isFirebaseConfigured || !db) {
-      // Local fallback
-      const updatedUpas = [...upas];
-      if (editingUpa) {
-        const idx = updatedUpas.findIndex(u => u.id === editingUpa.id);
-        if (idx !== -1) {
-          updatedUpas[idx] = { ...editingUpa, ...upaData };
-        }
-      } else {
-        const newUpa: Upa = {
-          id: 'local_upa_' + Date.now(),
-          ...upaData
-        };
-        updatedUpas.push(newUpa);
-      }
-      localStorage.setItem('local_upas', JSON.stringify(updatedUpas));
-      setUpas(updatedUpas);
-      setIsBialModalOpen(false);
-      // Select the newly added or updated Bial
-      const updatedItem = editingUpa ? updatedUpas.find(u => u.id === editingUpa.id) : updatedUpas[updatedUpas.length - 1];
-      if (updatedItem) setSelectedUpa(updatedItem);
+      alert("Firebase not configured.");
       return;
     }
 
+    setIsUploading(true);
     try {
+      let finalImageUrl = elderImageUrl;
+      if (selectedFile) {
+        finalImageUrl = await uploadImageToImgbb(selectedFile);
+      }
+
+      let finalMapImageUrl = mapImageUrl;
+      if (selectedMapFile) {
+        finalMapImageUrl = await uploadImageToImgbb(selectedMapFile);
+      }
+
+      if (!finalMapImageUrl) {
+        alert("Khawngaihin Bial Map thlalak (image) thun rawh. (Mandatory)");
+        setIsUploading(false);
+        return;
+      }
+
+      const upaData = {
+        name: elderName,
+        bial: bialName,
+        phone: elderPhone,
+        bio: elderBio,
+        imageUrl: finalImageUrl,
+        mapImageUrl: finalMapImageUrl,
+        mapDescription: mapDescription
+      };
+
       if (editingUpa?.id) {
         await updateDoc(doc(db, 'upas', editingUpa.id), upaData);
       } else {
@@ -148,6 +170,8 @@ export default function UpaBial() {
     } catch (error) {
       console.error("Error saving elder/bial:", error);
       alert("Failed to save elder/bial.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -208,13 +232,21 @@ export default function UpaBial() {
       setBialName(upa.bial);
       setElderPhone(upa.phone);
       setElderBio(upa.bio || '');
+      setElderImageUrl(upa.imageUrl || '');
+      setMapImageUrl(upa.mapImageUrl || '');
+      setMapDescription(upa.mapDescription || '');
     } else {
       setEditingUpa(null);
       setElderName('');
       setBialName('');
       setElderPhone('');
       setElderBio('');
+      setElderImageUrl('');
+      setMapImageUrl('');
+      setMapDescription('');
     }
+    setSelectedFile(null);
+    setSelectedMapFile(null);
     setIsBialModalOpen(true);
   };
 
@@ -311,10 +343,10 @@ export default function UpaBial() {
         <div className="text-center py-12 text-stone-500 font-sans">Loading data...</div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Elders selection */}
+          {/* Left Column: Upas selection */}
           <div className="lg:col-span-4 space-y-4">
             <h2 className="text-xs uppercase tracking-widest font-bold text-stone-400 font-sans px-2">
-              Select Elder / Bial
+              Select Upa / Bial
             </h2>
             <div className="space-y-3">
               {upas.map((upa) => {
@@ -371,7 +403,7 @@ export default function UpaBial() {
                       </div>
                     </button>
 
-                    {/* Admin inline buttons for Elder/Bial */}
+                    {/* Admin inline buttons for Upa/Bial */}
                     <div className="absolute top-3 right-12 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={(e) => { e.stopPropagation(); openBialModal(upa); }}
@@ -380,7 +412,7 @@ export default function UpaBial() {
                             ? 'bg-white/20 text-white border-white/30 hover:bg-white/35' 
                             : 'bg-[#fcfaf7] text-stone-500 border-[#ecece0] hover:text-[#5A5A40]'
                         }`}
-                        title="Edit Bial / Elder"
+                        title="Edit Bial / Upa"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
@@ -391,7 +423,7 @@ export default function UpaBial() {
                             ? 'bg-red-900/40 text-red-100 border-red-500/30 hover:bg-red-800/55' 
                             : 'bg-red-50 text-red-500 border-red-100 hover:text-red-700 hover:bg-red-100'
                         }`}
-                        title="Delete Bial / Elder"
+                        title="Delete Bial / Upa"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -409,21 +441,36 @@ export default function UpaBial() {
           <div className="lg:col-span-8 space-y-6">
             {selectedUpa ? (
               <div className="bg-white rounded-[32px] border border-[#e0e0d5] shadow-sm overflow-hidden">
-                {/* Elder Details Header */}
+                {/* Upa Details Header */}
                 <div className="p-6 sm:p-8 border-b border-[#e0e0d5] bg-[#fcfaf7]">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      {selectedUpa.imageUrl ? (
+                        <img 
+                          src={selectedUpa.imageUrl} 
+                          alt={selectedUpa.name} 
+                          className="w-16 h-16 rounded-full object-cover border border-[#ecece0] shrink-0" 
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-white border border-[#ecece0] text-[#5A5A40] rounded-full flex items-center justify-center text-2xl font-bold font-sans shrink-0">
+                          {selectedUpa.name.split(' ')[1]?.charAt(0) || selectedUpa.name.charAt(4) || 'U'}
+                        </div>
+                      )}
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider font-sans mb-1 block">
-                          Selected Bial Elder
+                          Selected Bial Upa
                         </span>
-                        <button 
-                          onClick={() => openBialModal(selectedUpa)}
-                          className="p-1 text-stone-400 hover:text-[#5A5A40] transition rounded-md hover:bg-stone-100"
-                          title="Edit current Elder details"
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
+                        {isAdmin && (
+                          <button 
+                            onClick={() => openBialModal(selectedUpa)}
+                            className="p-1 text-stone-400 hover:text-[#5A5A40] transition rounded-md hover:bg-stone-100"
+                            title="Edit current Upa details"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                       <h2 className="text-2xl font-serif italic text-[#5A5A40]">{selectedUpa.name}</h2>
                       <div className="flex flex-wrap items-center gap-y-1 gap-x-4 mt-2 text-xs text-stone-500 font-sans font-medium">
@@ -436,6 +483,7 @@ export default function UpaBial() {
                           {selectedUpa.phone}
                         </span>
                       </div>
+                    </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <button 
@@ -468,7 +516,7 @@ export default function UpaBial() {
                     <input
                       type="text"
                       className="block w-full pl-11 pr-4 py-2.5 bg-[#fcfaf7] border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] focus:border-[#5A5A40] text-[#2d2d2a] placeholder-stone-400"
-                      placeholder={`Search within ${selectedUpa.name.split(' ')[1] || 'Elder'}'s Bial...`}
+                      placeholder={`Search within ${selectedUpa.name.split(' ')[1] || 'Upa'}'s Bial...`}
                       value={memberSearchTerm}
                       onChange={(e) => setMemberSearchTerm(e.target.value)}
                     />
@@ -551,7 +599,7 @@ export default function UpaBial() {
               </div>
             ) : (
               <div className="text-center py-12 text-stone-500 font-sans italic bg-white border border-[#e0e0d5] rounded-[32px]">
-                Please select an Elder/Bial from the list on the left or add a new Bial to begin.
+                Please select an Upa/Bial from the list on the left or add a new Bial to begin.
               </div>
             )}
           </div>
@@ -564,7 +612,7 @@ export default function UpaBial() {
           <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-lg shadow-xl border border-[#e0e0d5] overflow-hidden">
             <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white">
               <h2 className="text-xl font-serif italic text-[#5A5A40]">
-                {editingUpa ? 'Edit Bial / Elder' : 'Add New Bial / Elder'}
+                {editingUpa ? 'Edit Bial / Upa' : 'Add New Bial / Upa'}
               </h2>
               <button onClick={() => setIsBialModalOpen(false)} className="p-2 hover:bg-stone-100 rounded-full text-stone-500">
                 <X className="w-5 h-5" />
@@ -584,7 +632,7 @@ export default function UpaBial() {
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Elder's Name (Upa Hming)</label>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Upa's Name (Upa Hming)</label>
                 <input 
                   type="text" 
                   value={elderName} 
@@ -615,20 +663,60 @@ export default function UpaBial() {
                   className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] resize-none"
                 />
               </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Bial Map Description (Optional)</label>
+                <textarea 
+                  value={mapDescription} 
+                  onChange={e => setMapDescription(e.target.value)}
+                  placeholder="e.g. This area covers the northern part..."
+                  rows={2}
+                  className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] resize-none mb-4"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Bial Map Image (Mandatory) *</label>
+                <div className="flex items-center gap-4 mb-4">
+                  {mapImageUrl && !selectedMapFile && (
+                    <img src={mapImageUrl} alt="Map Preview" className="w-16 h-16 rounded-xl object-cover border border-[#ecece0]" />
+                  )}
+                  <input 
+                    type="file"
+                    accept="image/*"
+                    onChange={handleMapFileChange}
+                    className="w-full p-2 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Upa Image (Optional)</label>
+                <div className="flex items-center gap-4">
+                  {elderImageUrl && !selectedFile && (
+                    <img src={elderImageUrl} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-[#ecece0]" />
+                  )}
+                  <input 
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full p-2 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3">
               <button 
                 onClick={() => setIsBialModalOpen(false)}
+                disabled={isUploading}
                 className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest text-stone-500 hover:bg-stone-50 font-sans border border-[#ecece0]"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSaveBial}
-                className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest bg-[#5A5A40] text-white hover:bg-[#4a4a35] font-sans"
+                disabled={isUploading}
+                className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest bg-[#5A5A40] text-white hover:bg-[#4a4a35] font-sans disabled:opacity-50"
               >
-                Save Bial / Elder
+                {isUploading ? 'Saving...' : 'Save Bial / Upa'}
               </button>
             </div>
           </div>
