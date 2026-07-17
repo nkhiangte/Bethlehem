@@ -1,27 +1,26 @@
 import { useAuth } from '../lib/auth';
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
-import { Filter, Plus, X, Pencil, Trash2, Upload } from 'lucide-react';
+import { Filter, Plus, X, Pencil, Trash2, Upload, ArrowLeft } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { RecordType, ChurchRecord, DamloKanRecord, Upa } from '../types';
 import Papa from 'papaparse';
 
-const recordTypes: { value: RecordType | 'all', label: string }[] = [
-  { value: 'all', label: 'All Records' },
-  { value: 'baptism', label: 'Baptism' },
-  { value: 'marriage', label: 'Marriage' },
-  { value: 'death', label: 'Death' },
+const recordTypes: { value: RecordType, label: string }[] = [
+  { value: 'baptism', label: 'Baptisma' },
+  { value: 'marriage', label: 'Inneih' },
+  { value: 'death', label: 'Mitthi' },
   { value: 'pem', label: 'Pem (Emigrate)' },
   { value: 'dawnsawn', label: 'Dawnsawn (Immigrate)' },
-  { value: 'testimonial_received', label: 'Testimonial Received' },
-  { value: 'testimonial_disbursement', label: 'Testimonial Disbursement' },
-  { value: 'converted', label: 'Converted from other denom.' }
+  { value: 'testimonial_received', label: 'Testimonial dawn' },
+  { value: 'testimonial_disbursement', label: 'Testimonial pekchhuah' },
+  { value: 'converted', label: 'Pawl dang atanga lo pakai' }
 ];
 
 export default function Records() {
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'records' | 'damlokan'>('records');
-  const [filterType, setFilterType] = useState<RecordType | 'all'>('all');
+  const [filterType, setFilterType] = useState<RecordType | null>(null);
   
   const [upas, setUpas] = useState<Upa[]>([]);
   const [damloKanRecords, setDamloKanRecords] = useState<DamloKanRecord[]>([]);
@@ -52,7 +51,7 @@ export default function Records() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredRecords = churchRecords.filter(record => 
-    filterType === 'all' || record.type === filterType
+    record.type === filterType
   );
 
   useEffect(() => {
@@ -109,7 +108,7 @@ export default function Records() {
       setRecordFamilyMembers(record.familyMembers || '');
     } else {
       setEditingRecord(null);
-      setRecordFormType(filterType !== 'all' ? filterType : 'baptism');
+      setRecordFormType(filterType !== null ? filterType : 'baptism');
       setRecordMemberName('');
       setRecordDate(new Date().toISOString().split('T')[0]);
       setRecordDetails('');
@@ -378,53 +377,66 @@ export default function Records() {
 
       {activeTab === 'records' ? (
         <div className="space-y-6">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex flex-wrap items-center gap-2">
+          {!filterType ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {recordTypes.map(type => (
                 <button
                   key={type.value}
                   onClick={() => setFilterType(type.value as any)}
-                  className={`px-4 py-2 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                    filterType === type.value 
-                      ? 'bg-[#5A5A40] text-white border-[#5A5A40]' 
-                      : 'bg-white text-stone-500 border-[#ecece0] hover:bg-stone-50'
-                  }`}
+                  className="bg-white p-6 rounded-2xl border border-[#ecece0] shadow-sm hover:shadow-md hover:-translate-y-1 transition-all text-left group flex flex-col justify-between min-h-[120px]"
                 >
-                  {type.label}
+                  <span className="text-[#5A5A40] font-serif italic text-xl">{type.label}</span>
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-stone-400 group-hover:text-[#5A5A40] transition-colors flex items-center gap-1">
+                    View Records &rarr;
+                  </span>
                 </button>
               ))}
             </div>
-            
-            <div className="flex gap-2">
-              <input 
-                type="file" 
-                accept=".csv" 
-                ref={fileInputRef} 
-                onChange={handleFileUpload} 
-                className="hidden" 
-              />
-              <button 
-                onClick={() => {
-                  if (filterType === 'all') {
-                    alert('Please select a specific record type (e.g. Baptism) to import CSV');
-                  } else {
-                    fileInputRef.current?.click();
-                  }
-                }}
-                className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition shrink-0 font-sans flex items-center gap-2"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Import CSV
-              </button>
-              <button 
-                onClick={() => openRecordModal()}
-                className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                New Record
-              </button>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setFilterType(null)}
+                    className="p-2 bg-white rounded-full border border-[#ecece0] text-stone-500 hover:bg-stone-50 transition"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-2xl font-serif italic text-[#5A5A40]">
+                    {recordTypes.find(t => t.value === filterType)?.label} Records
+                  </h2>
+                </div>
+                
+                <div className="flex gap-2">
+                  <input 
+                    type="file" 
+                    accept=".csv" 
+                    ref={fileInputRef} 
+                    onChange={handleFileUpload} 
+                    className="hidden" 
+                  />
+                  <button 
+                    onClick={() => {
+                      if (filterType === null) {
+                        alert('Please select a specific record type (e.g. Baptism) to import CSV');
+                      } else {
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition shrink-0 font-sans flex items-center gap-2"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Import CSV
+                  </button>
+                  <button 
+                    onClick={() => openRecordModal()}
+                    className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New Record
+                  </button>
+                </div>
+              </div>
 
           <div className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden">
             {loading ? (
@@ -503,6 +515,8 @@ export default function Records() {
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-6">
@@ -600,7 +614,7 @@ export default function Records() {
                   onChange={e => setRecordFormType(e.target.value as RecordType)}
                   className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                 >
-                  {recordTypes.filter(t => t.value !== 'all').map(type => (
+                  {recordTypes.map(type => (
                     <option key={type.value} value={type.value}>{type.label}</option>
                   ))}
                 </select>
