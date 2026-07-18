@@ -164,13 +164,15 @@ export default function FellowshipPage() {
           <h1 className="text-2xl font-semibold tracking-tight uppercase">Fellowship</h1>
           <p className="mt-1 text-stone-500 font-sans text-xs uppercase tracking-widest">Office bearers and members</p>
         </div>
-        <button 
-          onClick={() => openModal()}
-          className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Fellowship
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={() => openModal()}
+            className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Fellowship
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -184,22 +186,24 @@ export default function FellowshipPage() {
                   <HeartHandshake className="w-5 h-5 text-stone-400" />
                   {fellowship.name}
                 </h2>
-                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={() => openModal(fellowship)} 
-                    className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                    title="Edit Fellowship"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(fellowship.id)} 
-                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                    title="Delete Fellowship"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => openModal(fellowship)} 
+                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                      title="Edit Fellowship"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(fellowship.id)} 
+                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                      title="Delete Fellowship"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="p-6 font-sans">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6">

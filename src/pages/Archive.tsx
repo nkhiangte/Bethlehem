@@ -165,13 +165,15 @@ export default function Archive() {
             Historical records of Rawngbawltu (Office Bearers)
           </p>
         </div>
-        <button 
-          onClick={() => openModal()}
-          className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-2 shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Year
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={() => openModal()}
+            className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-2 shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Year
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -220,30 +222,32 @@ export default function Archive() {
                     </button>
 
                     {/* Admin inline buttons */}
-                    <div className="absolute top-3 right-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); openModal(archive); }}
-                        className={`p-1.5 rounded-lg border transition ${
-                          isActive 
-                            ? 'bg-white/20 text-white border-white/30 hover:bg-white/35' 
-                            : 'bg-[#fcfaf7] text-stone-500 border-[#ecece0] hover:text-[#5A5A40]'
-                        }`}
-                        title="Edit Year"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDelete(archive.id); }}
-                        className={`p-1.5 rounded-lg border transition ${
-                          isActive 
-                            ? 'bg-red-900/40 text-red-100 border-red-500/30 hover:bg-red-800/55' 
-                            : 'bg-red-50 text-red-500 border-red-100 hover:text-red-700 hover:bg-red-100'
-                        }`}
-                        title="Delete Year"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {isAdmin && (
+                      <div className="absolute top-3 right-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); openModal(archive); }}
+                          className={`p-1.5 rounded-lg border transition ${
+                            isActive 
+                              ? 'bg-white/20 text-white border-white/30 hover:bg-white/35' 
+                              : 'bg-[#fcfaf7] text-stone-500 border-[#ecece0] hover:text-[#5A5A40]'
+                          }`}
+                          title="Edit Year"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(archive.id); }}
+                          className={`p-1.5 rounded-lg border transition ${
+                            isActive 
+                              ? 'bg-red-900/40 text-red-100 border-red-500/30 hover:bg-red-800/55' 
+                              : 'bg-red-50 text-red-500 border-red-100 hover:text-red-700 hover:bg-red-100'
+                          }`}
+                          title="Delete Year"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

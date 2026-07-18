@@ -290,15 +290,17 @@ export default function Programs() {
         <div className="text-center py-12 text-stone-500 font-sans">Loading...</div>
       ) : activeTab === 'inkhawm' ? (
         <div className="space-y-6">
-          <div className="flex justify-end">
-            <button 
-              onClick={() => handleOpenInkhawmModal()}
-              className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-2"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Programme
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="flex justify-end">
+              <button 
+                onClick={() => handleOpenInkhawmModal()}
+                className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-2"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Programme
+              </button>
+            </div>
+          )}
           <div className="grid gap-6">
             {programs.map((program) => (
               <div key={program.id} className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] p-6">
@@ -309,14 +311,16 @@ export default function Programs() {
                     </span>
                     <h2 className="text-xl font-serif italic text-[#5A5A40]">{program.title}</h2>
                   </div>
-                  <div className="flex gap-2 mt-4 md:mt-0">
-                    <button onClick={() => handleOpenInkhawmModal(program)} className="p-2 text-stone-400 hover:text-[#5A5A40] bg-[#fcfaf7] border border-[#ecece0] rounded-xl transition">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDeleteInkhawm(program.id)} className="p-2 text-red-400 hover:text-red-600 bg-red-50 border border-red-100 rounded-xl transition">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2 mt-4 md:mt-0">
+                      <button onClick={() => handleOpenInkhawmModal(program)} className="p-2 text-stone-400 hover:text-[#5A5A40] bg-[#fcfaf7] border border-[#ecece0] rounded-xl transition">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteInkhawm(program.id)} className="p-2 text-red-400 hover:text-red-600 bg-red-50 border border-red-100 rounded-xl transition">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4 text-sm font-sans text-[#2d2d2a] bg-[#fcfaf7] border border-[#ecece0] p-4 rounded-2xl">
@@ -362,33 +366,35 @@ export default function Programs() {
                 )}
               </select>
             </div>
-            <div className="flex gap-2 shrink-0">
-              {selectedMonthData && (
-                <>
-                  <button 
-                    onClick={() => handleOpenTawngtaiModal(selectedMonthData)}
-                    className="p-2.5 text-stone-400 hover:text-[#5A5A40] bg-[#fcfaf7] border border-[#ecece0] rounded-xl transition"
-                    title="Edit Month"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteTawngtai(selectedMonthData.id)}
-                    className="p-2.5 text-red-400 hover:text-red-600 bg-red-50 border border-red-100 rounded-xl transition"
-                    title="Delete Month"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </>
-              )}
-              <button 
-                onClick={() => handleOpenTawngtaiModal()}
-                className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-2"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Month
-              </button>
-            </div>
+            {isAdmin && (
+              <div className="flex gap-2 shrink-0">
+                {selectedMonthData && (
+                  <>
+                    <button 
+                      onClick={() => handleOpenTawngtaiModal(selectedMonthData)}
+                      className="p-2.5 text-stone-400 hover:text-[#5A5A40] bg-[#fcfaf7] border border-[#ecece0] rounded-xl transition"
+                      title="Edit Month"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteTawngtai(selectedMonthData.id)}
+                      className="p-2.5 text-red-400 hover:text-red-600 bg-red-50 border border-red-100 rounded-xl transition"
+                      title="Delete Month"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+                <button 
+                  onClick={() => handleOpenTawngtaiModal()}
+                  className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-2"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Month
+                </button>
+              </div>
+            )}
           </div>
 
           {selectedMonthData ? (

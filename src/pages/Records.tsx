@@ -408,33 +408,39 @@ export default function Records() {
                 </div>
                 
                 <div className="flex gap-2">
-                  <input 
-                    type="file" 
-                    accept=".csv" 
-                    ref={fileInputRef} 
-                    onChange={handleFileUpload} 
-                    className="hidden" 
-                  />
-                  <button 
-                    onClick={() => {
-                      if (filterType === null) {
-                        alert('Please select a specific record type (e.g. Baptism) to import CSV');
-                      } else {
-                        fileInputRef.current?.click();
-                      }
-                    }}
-                    className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition shrink-0 font-sans flex items-center gap-2"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Import CSV
-                  </button>
-                  <button 
-                    onClick={() => openRecordModal()}
-                    className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    New Record
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <input 
+                        type="file" 
+                        accept=".csv" 
+                        ref={fileInputRef} 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                      />
+                      <button 
+                        onClick={() => {
+                          if (filterType === null) {
+                            alert('Please select a specific record type (e.g. Baptism) to import CSV');
+                          } else {
+                            fileInputRef.current?.click();
+                          }
+                        }}
+                        className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition shrink-0 font-sans flex items-center gap-2"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Import CSV
+                      </button>
+                    </>
+                  )}
+                  {isAdmin && (
+                    <button 
+                      onClick={() => openRecordModal()}
+                      className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      New Record
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -487,22 +493,24 @@ export default function Records() {
                             <span className="font-semibold text-[#5A5A40]">{record.officiant}</span>
                           </div>
                         )}
-                        <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => openRecordModal(record)} 
-                            className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                            title="Edit Record"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteRecord(record.id)} 
-                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                            title="Delete Record"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {isAdmin && (
+                          <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => openRecordModal(record)} 
+                              className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                              title="Edit Record"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteRecord(record.id)} 
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                              title="Delete Record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -520,15 +528,17 @@ export default function Records() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="flex justify-end">
-            <button 
-              onClick={() => openDamloModal()}
-              className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Damlo Kan Record
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="flex justify-end">
+              <button 
+                onClick={() => openDamloModal()}
+                className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Damlo Kan Record
+              </button>
+            </div>
+          )}
 
           <div className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden">
             {loading ? (
@@ -559,22 +569,24 @@ export default function Records() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => openDamloModal(record)} 
-                              className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                              title="Edit Record"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteDamlo(record.id)} 
-                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                              title="Delete Record"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          {isAdmin && (
+                            <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => openDamloModal(record)} 
+                                className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                                title="Edit Record"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteDamlo(record.id)} 
+                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                                title="Delete Record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
