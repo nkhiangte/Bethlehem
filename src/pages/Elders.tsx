@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, Plus, X, Pencil, Trash2, Upload } from 'lucide-react';
+import { MapPin, Phone, Plus, X, Pencil, Trash2, Upload, GripVertical } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Upa } from '../types';
@@ -12,6 +12,61 @@ export default function Elders() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUpa, setEditingUpa] = useState<Upa | null>(null);
+
+  // Drag and Drop States
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+
+  // Drag and Drop Handlers
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+  };
+
+  const handleDragEnter = (e: React.DragEvent, id: string) => {
+    if (draggedId && draggedId !== id) {
+      const draggedIdx = upas.findIndex(u => u.id === draggedId);
+      const targetIdx = upas.findIndex(u => u.id === id);
+      if (draggedIdx !== -1 && targetIdx !== -1 && draggedIdx !== targetIdx) {
+        const updated = [...upas];
+        const [moved] = updated.splice(draggedIdx, 1);
+        updated.splice(targetIdx, 0, moved);
+        setUpas(updated);
+      }
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDraggedId(null);
+    
+    // Calculate new sequential sortOrder
+    const withNewOrder = upas.map((upa, index) => ({
+      ...upa,
+      sortOrder: index
+    }));
+    setUpas(withNewOrder);
+
+    if (isFirebaseConfigured && db) {
+      try {
+        for (const upa of withNewOrder) {
+          await updateDoc(doc(db, 'upas', upa.id), { sortOrder: upa.sortOrder });
+        }
+      } catch (error) {
+        console.error("Error persisting order:", error);
+      }
+    } else {
+      localStorage.setItem('local_upas_ordered', JSON.stringify(withNewOrder));
+    }
+  };
 
   // Form states
   const [name, setName] = useState('');
@@ -33,10 +88,28 @@ export default function Elders() {
       return;
     }
     try {
-      const q = query(collection(db, 'upas'), orderBy('name', 'asc'));
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(collection(db, 'upas'));
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Upa));
       
+      const getBialNumber = (bialStr: string): number => {
+        const match = bialStr.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 9999;
+      };
+
+      data.sort((a, b) => {
+        const orderA = a.sortOrder !== undefined ? a.sortOrder : 999999;
+        const orderB = b.sortOrder !== undefined ? b.sortOrder : 999999;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        const numA = getBialNumber(a.bial);
+        const numB = getBialNumber(b.bial);
+        if (numA !== numB) {
+          return numA - numB;
+        }
+        return a.bial.localeCompare(b.bial);
+      });
+
       // If Firestore is completely empty, use empty array
       if (data.length === 0) {
         setUpas([]);
@@ -95,11 +168,12 @@ export default function Elders() {
         finalImageUrl = await uploadImageToImgbb(selectedFile);
       }
 
-      const upaData = { name, bial, phone, bio, imageUrl: finalImageUrl };
+      const upaData: any = { name, bial, phone, bio, imageUrl: finalImageUrl };
 
       if (editingUpa?.id) {
         await updateDoc(doc(db, 'upas', editingUpa.id), upaData);
       } else {
+        upaData.sortOrder = upas.length;
         await addDoc(collection(db, 'upas'), upaData);
       }
       setIsModalOpen(false);
@@ -142,16 +216,36 @@ export default function Elders() {
         )}
       </div>
 
+      {isAdmin && (
+        <div className="bg-[#fcfaf7] border border-[#ecece0] rounded-2xl p-4 text-xs text-[#5A5A40] flex items-center gap-2.5 font-sans shadow-sm">
+          <GripVertical className="w-4 h-4 text-stone-400 shrink-0" />
+          <span>
+            <strong>Rem hmun sawn kual hna:</strong> Drag and drop hmangin Upa hmingte hi i duh ang angin i rem hmun sawn kual (arrange) thei e. Upa hming zawna grip handle hi vuanin hnuk kual rawh.
+          </span>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-12 text-stone-500 font-sans">Loading Upas...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {upas.map((upa) => (
-            <div key={upa.id} className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden flex flex-col p-2">
+            <div 
+              key={upa.id}
+              draggable={isAdmin}
+              onDragStart={(e) => handleDragStart(e, upa.id)}
+              onDragOver={(e) => handleDragOver(e, upa.id)}
+              onDragEnter={(e) => handleDragEnter(e, upa.id)}
+              onDragEnd={handleDragEnd}
+              onDrop={handleDrop}
+              className={`bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden flex flex-col p-2 transition-all duration-200 ${
+                draggedId === upa.id ? 'opacity-40 scale-95 border-dashed border-[#5A5A40]' : 'hover:shadow-md'
+              } ${isAdmin ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            >
               <div className="bg-[#fcfaf7] border border-[#ecece0] rounded-[24px] p-6 flex-1 m-1 mb-0 relative group">
                 {/* Actions overlay */}
                 {isAdmin && (
-                  <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm p-1 rounded-xl border border-[#ecece0]">
+                  <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm p-1 rounded-xl border border-[#ecece0] z-10">
                     <button onClick={() => handleOpenModal(upa)} className="p-1.5 text-stone-500 hover:text-[#5A5A40] rounded-lg hover:bg-[#fcfaf7] transition">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -162,6 +256,11 @@ export default function Elders() {
                 )}
 
                 <div className="flex items-start gap-4">
+                  {isAdmin && (
+                    <div className="text-stone-400 cursor-grab active:cursor-grabbing hover:text-[#5A5A40] transition self-center py-2 shrink-0" title="Hnuk kual rawh">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+                  )}
                   {upa.imageUrl ? (
                     <img 
                       src={upa.imageUrl} 

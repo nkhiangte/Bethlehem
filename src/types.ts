@@ -7,6 +7,7 @@ export interface Upa {
   imageUrl?: string;
   mapImageUrl?: string;
   mapDescription?: string;
+  sortOrder?: number;
 }
 
 export interface Member {
