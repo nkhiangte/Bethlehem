@@ -87,11 +87,6 @@ export default function UpaBial() {
     };
 
     fetchedUpas.sort((a, b) => {
-      const orderA = a.sortOrder !== undefined ? a.sortOrder : 999999;
-      const orderB = b.sortOrder !== undefined ? b.sortOrder : 999999;
-      if (orderA !== orderB) {
-        return orderA - orderB;
-      }
       const numA = getBialNumber(a.bial);
       const numB = getBialNumber(b.bial);
       if (numA !== numB) {
