@@ -16,6 +16,8 @@ export interface Member {
   phone: string;
   upaBial: string;
   familyHead: string;
+  dob?: string;
+  dzk?: boolean;
 }
 
 export type RecordType = 

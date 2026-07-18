@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, Users, Home, Search, ChevronRight, Plus, X, Pencil, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapPin, Phone, Users, Home, Search, ChevronRight, Plus, X, Pencil, Trash2, Upload } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Upa, Member } from '../types';
 import { uploadImageToImgbb } from '../lib/imgbb';
 import { useAuth } from '../lib/auth';
+import Papa from 'papaparse';
 
 export default function UpaBial() {
   const { isAdmin } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [upas, setUpas] = useState<Upa[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,8 @@ export default function UpaBial() {
   const [memberAddress, setMemberAddress] = useState('');
   const [memberBial, setMemberBial] = useState('');
   const [memberFamilyHead, setMemberFamilyHead] = useState('');
+  const [memberDob, setMemberDob] = useState('');
+  const [memberDzk, setMemberDzk] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -58,7 +62,7 @@ export default function UpaBial() {
       fetchedMembers = localMembers ? JSON.parse(localMembers) : [];
     } else {
       try {
-        const upasSnapshot = await getDocs(query(collection(db, 'upas'), orderBy('name', 'asc')));
+        const upasSnapshot = await getDocs(collection(db, 'upas'));
         fetchedUpas = upasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Upa));
 
         const membersSnapshot = await getDocs(query(collection(db, 'members'), orderBy('name', 'asc')));
@@ -76,6 +80,20 @@ export default function UpaBial() {
         fetchedMembers = [];
       }
     }
+
+    const getBialNumber = (bialStr: string): number => {
+      const match = bialStr.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 9999;
+    };
+
+    fetchedUpas.sort((a, b) => {
+      const numA = getBialNumber(a.bial);
+      const numB = getBialNumber(b.bial);
+      if (numA !== numB) {
+        return numA - numB;
+      }
+      return a.bial.localeCompare(b.bial);
+    });
 
     setUpas(fetchedUpas);
     setMembers(fetchedMembers);
@@ -177,8 +195,8 @@ export default function UpaBial() {
 
   // Admin Member Save Handler
   const handleSaveMember = async () => {
-    if (!memberName || !memberAddress || !memberPhone || !memberBial || !memberFamilyHead) {
-      alert("Khawngaihin hming leh chhungkaw pa ziah hmaih suh.");
+    if (!memberName || !memberBial) {
+      alert("Khawngaihin hming leh upa bial thlang rawh.");
       return;
     }
 
@@ -187,7 +205,9 @@ export default function UpaBial() {
       phone: memberPhone,
       address: memberAddress,
       upaBial: memberBial,
-      familyHead: memberFamilyHead
+      familyHead: memberFamilyHead,
+      dob: memberDob,
+      dzk: memberDzk
     };
 
     if (!isFirebaseConfigured || !db) {
@@ -222,6 +242,72 @@ export default function UpaBial() {
       console.error("Error saving member:", error);
       alert("Failed to save family member.");
     }
+  };
+
+  // CSV File upload handler for family members
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedUpa) {
+      alert("Khawngaihin bial pakhat thlang hmasa rawh.");
+      return;
+    }
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const newMembers: Omit<Member, 'id'>[] = results.data.map((row: any) => {
+          const dzkVal = (row['DZK'] || row['dzk'] || '').toLowerCase().trim();
+          return {
+            name: (row['Name'] || row['Hming'] || '').trim(),
+            phone: (row['Phone'] || row['Phone Number'] || row['Contact'] || row['Number'] || '').trim(),
+            address: (row['Address'] || row['Veng'] || row['In hmun'] || row['In Luah'] || '').trim(),
+            upaBial: selectedUpa.bial,
+            familyHead: (row['Family Head'] || row['Chhungkaw Pa'] || row['Chhungkaw pa hming'] || row['Head'] || '').trim(),
+            dob: (row['DoB'] || row['dob'] || row['Date of Birth'] || row['Pianni'] || '').trim(),
+            dzk: dzkVal === 'yes' || dzkVal === 'true' || dzkVal === '1' || dzkVal === 't' || dzkVal === 'y'
+          };
+        }).filter((m: any) => m.name !== '');
+
+        if (newMembers.length === 0) {
+          alert("Import tur hming thun a awm lo hmel khawp mai. Check tha leh rawh.");
+          return;
+        }
+
+        setLoading(true);
+
+        if (!isFirebaseConfigured || !db) {
+          const updatedMembers = [...members];
+          newMembers.forEach((nm, idx) => {
+            updatedMembers.push({
+              id: 'local_member_' + Date.now() + '_' + idx,
+              ...nm
+            } as Member);
+          });
+          localStorage.setItem('local_members', JSON.stringify(updatedMembers));
+          setMembers(updatedMembers);
+          setLoading(false);
+          alert(`Successfully imported ${newMembers.length} members locally.`);
+        } else {
+          try {
+            for (const nm of newMembers) {
+              await addDoc(collection(db, 'members'), nm);
+            }
+            await fetchData();
+            alert(`Successfully imported ${newMembers.length} members to ${selectedUpa.bial}.`);
+          } catch (error) {
+            console.error("Error importing members:", error);
+            alert("Failed to import members.");
+          } finally {
+            setLoading(false);
+          }
+        }
+      }
+    });
+    // Reset file input value
+    e.target.value = '';
   };
 
   // Open Bial Modal
@@ -259,6 +345,8 @@ export default function UpaBial() {
       setMemberAddress(member.address);
       setMemberBial(member.upaBial);
       setMemberFamilyHead(member.familyHead);
+      setMemberDob(member.dob || '');
+      setMemberDzk(member.dzk || false);
     } else {
       setEditingMember(null);
       setMemberName('');
@@ -267,6 +355,8 @@ export default function UpaBial() {
       setMemberAddress(selectedUpa ? selectedUpa.bial : '');
       setMemberBial(selectedUpa ? selectedUpa.bial : (upas[0]?.bial || ''));
       setMemberFamilyHead('');
+      setMemberDob('');
+      setMemberDzk(false);
     }
     setIsMemberModalOpen(true);
   };
@@ -322,6 +412,22 @@ export default function UpaBial() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
+          <input 
+            type="file" 
+            accept=".csv" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+            className="hidden" 
+          />
+          {selectedUpa && (
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition font-sans flex items-center gap-2"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Import CSV
+            </button>
+          )}
           <button 
             onClick={() => openBialModal()}
             className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-2"
@@ -378,16 +484,19 @@ export default function UpaBial() {
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 font-sans ${
                           isActive ? 'bg-white/20 text-white' : 'bg-[#fcfaf7] border border-[#ecece0] text-[#5A5A40]'
                         }`}>
-                          {upa.name.split(' ')[1]?.charAt(0) || upa.name.charAt(4) || 'U'}
+                          {(() => {
+                            const m = upa.bial.match(/\d+/);
+                            return m ? m[0] : (upa.bial.charAt(0) || 'B');
+                          })()}
                         </div>
                         <div>
                           <h3 className="font-serif italic text-base leading-tight">
-                            {upa.name}
+                            {upa.bial}
                           </h3>
                           <p className={`text-[10px] uppercase font-bold tracking-wider font-sans mt-0.5 ${
                             isActive ? 'text-white/80' : 'text-stone-400'
                           }`}>
-                            {upa.bial}
+                            {upa.name}
                           </p>
                         </div>
                       </div>
@@ -454,7 +563,10 @@ export default function UpaBial() {
                         />
                       ) : (
                         <div className="w-16 h-16 bg-white border border-[#ecece0] text-[#5A5A40] rounded-full flex items-center justify-center text-2xl font-bold font-sans shrink-0">
-                          {selectedUpa.name.split(' ')[1]?.charAt(0) || selectedUpa.name.charAt(4) || 'U'}
+                          {(() => {
+                            const m = selectedUpa.bial.match(/\d+/);
+                            return m ? m[0] : (selectedUpa.bial.charAt(0) || 'B');
+                          })()}
                         </div>
                       )}
                     <div>
@@ -472,12 +584,9 @@ export default function UpaBial() {
                           </button>
                         )}
                       </div>
-                      <h2 className="text-2xl font-serif italic text-[#5A5A40]">{selectedUpa.name}</h2>
+                      <h2 className="text-2xl font-serif italic text-[#5A5A40]">{selectedUpa.bial}</h2>
+                      <p className="text-base text-stone-600 font-sans font-medium mt-0.5">{selectedUpa.name}</p>
                       <div className="flex flex-wrap items-center gap-y-1 gap-x-4 mt-2 text-xs text-stone-500 font-sans font-medium">
-                        <span className="flex items-center">
-                          <MapPin className="w-3.5 h-3.5 mr-1.5 text-stone-400" />
-                          {selectedUpa.bial}
-                        </span>
                         <span className="flex items-center">
                           <Phone className="w-3.5 h-3.5 mr-1.5 text-stone-400" />
                           {selectedUpa.phone}
@@ -485,12 +594,19 @@ export default function UpaBial() {
                       </div>
                     </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <button 
                         onClick={() => openMemberModal()}
                         className="bg-[#5A5A40] text-white px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-1.5"
                       >
                         <Plus className="w-3 h-3" /> Add Family Member
+                      </button>
+                      <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition font-sans flex items-center gap-1.5"
+                        title="Import family members from CSV"
+                      >
+                        <Upload className="w-3 h-3" /> Import CSV
                       </button>
                       <div className="bg-white border border-[#ecece0] px-4 py-2.5 rounded-2xl flex items-center gap-2 font-sans shrink-0">
                         <Users className="w-4 h-4 text-[#5A5A40]" />
@@ -555,7 +671,23 @@ export default function UpaBial() {
                       {filteredBialMembers.map((member) => (
                         <tr key={member.id} className="hover:bg-[#f5f5f0]/50 transition-colors group">
                           <td className="px-6 py-5 whitespace-nowrap">
-                            <div className="text-sm font-semibold text-[#2d2d2a]">{member.name}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-[#2d2d2a]">{member.name}</span>
+                              {member.dzk && (
+                                <span className="bg-amber-100 text-[#5A5A40] text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                  DZK
+                                </span>
+                              )}
+                            </div>
+                            {member.dob && (
+                              <div className="text-[10px] text-stone-400 mt-1 font-sans">
+                                DoB: {(() => {
+                                  const parsed = Date.parse(member.dob);
+                                  if (isNaN(parsed)) return member.dob;
+                                  return new Date(member.dob).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                                })()}
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap">
                             <div className="flex flex-col space-y-1.5 text-xs text-stone-500">
@@ -804,6 +936,29 @@ export default function UpaBial() {
                   placeholder="e.g. Bethlehem Vengthlang"
                   className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Date of Birth (DoB)</label>
+                <input 
+                  type="date" 
+                  value={memberDob} 
+                  onChange={e => setMemberDob(e.target.value)}
+                  className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 bg-[#fcfaf7] border border-[#ecece0] p-4 rounded-xl md:col-span-1">
+                <input 
+                  type="checkbox" 
+                  id="memberDzkCheckbox"
+                  checked={memberDzk} 
+                  onChange={e => setMemberDzk(e.target.checked)}
+                  className="w-4 h-4 text-[#5A5A40] border-[#ecece0] rounded focus:ring-[#5A5A40] accent-[#5A5A40] cursor-pointer"
+                />
+                <label htmlFor="memberDzkCheckbox" className="text-sm font-medium text-stone-700 cursor-pointer select-none">
+                  DZK Member (Yes / No)
+                </label>
               </div>
             </div>
 
