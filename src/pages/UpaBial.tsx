@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Phone, Users, Home, Search, ChevronRight, Plus, X, Pencil, Trash2, Upload } from 'lucide-react';
+import { MapPin, Phone, Users, Home, Search, ChevronRight, Plus, X, Pencil, Trash2, Upload, Download } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Upa, Member } from '../types';
@@ -310,6 +310,30 @@ export default function UpaBial() {
     e.target.value = '';
   };
 
+  // Download CSV template for importing family members
+  const downloadCsvTemplate = () => {
+    const headers = ['Name', 'Phone', 'Address', 'Family Head', 'DoB', 'DZK'];
+    const rows = [
+      ['Rualkhuma', '9876543210', 'Bethlehem Veng', 'Lalnunmawia', '1990-05-15', 'Yes'],
+      ['Lalrinsanga', '9862500000', 'Bethlehem, Aizawl', 'Lalrinsanga', '1985-11-22', 'No']
+    ];
+    
+    // Construct CSV with standard RFC 4180 formatting
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'upa_bial_members_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Open Bial Modal
   const openBialModal = (upa?: Upa) => {
     if (upa) {
@@ -420,13 +444,23 @@ export default function UpaBial() {
             className="hidden" 
           />
           {selectedUpa && (
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition font-sans flex items-center gap-2"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Import CSV
-            </button>
+            <>
+              <button 
+                onClick={downloadCsvTemplate}
+                className="bg-white text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition font-sans flex items-center gap-2"
+                title="Download sample CSV template for importing"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Template
+              </button>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition font-sans flex items-center gap-2"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Import CSV
+              </button>
+            </>
           )}
           <button 
             onClick={() => openBialModal()}
@@ -600,6 +634,13 @@ export default function UpaBial() {
                         className="bg-[#5A5A40] text-white px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-1.5"
                       >
                         <Plus className="w-3 h-3" /> Add Family Member
+                      </button>
+                      <button 
+                        onClick={downloadCsvTemplate}
+                        className="bg-white text-[#5A5A40] border border-[#ecece0] px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition font-sans flex items-center gap-1.5"
+                        title="Download sample CSV template for importing"
+                      >
+                        <Download className="w-3 h-3" /> Template
                       </button>
                       <button 
                         onClick={() => fileInputRef.current?.click()}
