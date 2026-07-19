@@ -1,2 +1,12 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Tahoma", sans-serif;
+  --font-serif: "Tahoma", sans-serif;
+  --font-mono: "Tahoma", monospace;
+}
+
+html, body, button, input, select, textarea, [class*="font-"] {
+  font-family: "Tahoma", sans-serif !important;
+}
