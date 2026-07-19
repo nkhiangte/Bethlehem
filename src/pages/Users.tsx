@@ -3,6 +3,7 @@ import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { UserProfile, useAuth } from '../lib/auth';
 import { Users as UsersIcon, Shield, ShieldAlert, User as UserIcon } from 'lucide-react';
+import { PhoneLink } from '../components/PhoneLink';
 
 export default function Users() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -84,7 +85,13 @@ export default function Users() {
                   <tr key={user.uid} className="hover:bg-stone-50/50 transition-colors">
                     <td className="p-4 font-medium text-[#2d2d2a]">{user.fullName}</td>
                     <td className="p-4 text-stone-600">{user.email}</td>
-                    <td className="p-4 text-stone-600">{user.phoneNumber || '-'}</td>
+                    <td className="p-4 text-stone-600">
+                      {user.phoneNumber ? (
+                        <PhoneLink phone={user.phoneNumber} showIcon={false} />
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest ${
                         user.role === 'admin' 

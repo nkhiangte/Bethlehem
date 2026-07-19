@@ -6,6 +6,7 @@ import { Upa, Member } from '../types';
 import { uploadImageToImgbb } from '../lib/imgbb';
 import { useAuth } from '../lib/auth';
 import Papa from 'papaparse';
+import { PhoneLink } from '../components/PhoneLink';
 
 export default function UpaBial() {
   const { isAdmin } = useAuth();
@@ -627,10 +628,7 @@ export default function UpaBial() {
                       <h2 className="text-2xl font-serif italic text-[#5A5A40]">{selectedUpa.bial}</h2>
                       <p className="text-base text-stone-600 font-sans font-medium mt-0.5">{selectedUpa.name}</p>
                       <div className="flex flex-wrap items-center gap-y-1 gap-x-4 mt-2 text-xs text-stone-500 font-sans font-medium">
-                        <span className="flex items-center">
-                          <Phone className="w-3.5 h-3.5 mr-1.5 text-stone-400" />
-                          {selectedUpa.phone}
-                        </span>
+                        <PhoneLink phone={selectedUpa.phone} showIcon={true} />
                       </div>
                     </div>
                     </div>
@@ -750,10 +748,7 @@ export default function UpaBial() {
                           </td>
                           <td className="px-6 py-5 whitespace-nowrap">
                             <div className="flex flex-col space-y-1.5 text-xs text-stone-500">
-                              <div className="flex items-center">
-                                <Phone className="w-3.5 h-3.5 mr-2 text-stone-400" />
-                                {member.phone}
-                              </div>
+                              <PhoneLink phone={member.phone} showIcon={true} />
                               <div className="flex items-center">
                                 <MapPin className="w-3.5 h-3.5 mr-2 text-stone-400" />
                                 {member.address}

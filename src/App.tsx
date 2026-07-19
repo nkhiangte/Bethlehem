@@ -18,6 +18,7 @@ import CommitteePage from './pages/Committee';
 import FellowshipPage from './pages/Fellowship';
 import Users from './pages/Users';
 import Gallery from './pages/Gallery';
+import About from './pages/About';
 
 export default function App() {
   return (
@@ -35,8 +36,9 @@ export default function App() {
             <Route path="/fellowship" element={<FellowshipPage />} />
             <Route path="/archive" element={<Archive />} />
             <Route path="/records" element={<Records />} />
-            <Route path="/users" element={<Users />} />
             <Route path="/gallery" element={<Gallery />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/about" element={<About />} />
           </Routes>
         </Layout>
       </BrowserRouter>

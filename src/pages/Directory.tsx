@@ -1,9 +1,11 @@
 import { useAuth } from '../lib/auth';
-import { useState, useEffect } from 'react';
-import { Search, MapPin, Phone, Home, Plus, X, Pencil, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, MapPin, Phone, Home, Plus, X, Pencil, Trash2, Upload, Download } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Member } from '../types';
+import { PhoneLink } from '../components/PhoneLink';
+import Papa from 'papaparse';
 
 export default function Directory() {
   const { isAdmin } = useAuth();
@@ -12,6 +14,8 @@ export default function Directory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
   const [name, setName] = useState('');
@@ -48,6 +52,87 @@ export default function Directory() {
     }
   };
 
+  // Download CSV template for importing members
+  const downloadCsvTemplate = () => {
+    const headers = ['Name', 'Phone', 'Address', 'Area (Bial)', 'Head of Family'];
+    const rows = [
+      ['Lalngaihzuali', '1234567890', 'Upa Bial 1-na', 'UPA BIAL 1-NA', 'Lalngaihzuali'],
+      ['Rualkhuma', '9876543210', 'Bethlehem Veng', 'UPA BIAL 2-NA', 'Lalnunmawia']
+    ];
+    
+    // Construct CSV with standard RFC 4180 formatting
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'church_members_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // CSV File upload handler for members
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const newMembers = results.data.map((row: any) => {
+          return {
+            name: (row['Name'] || row['Hming'] || '').trim(),
+            phone: (row['Phone'] || row['Phone Number'] || row['Contact'] || row['Number'] || '').trim(),
+            address: (row['Address'] || row['Veng'] || row['In hmun'] || row['In Luah'] || '').trim(),
+            upaBial: (row['Area (Bial)'] || row['Upa Bial'] || row['Area'] || row['Bial'] || '').trim(),
+            familyHead: (row['Head of Family'] || row['Chhungkaw Pa'] || row['Family Head'] || row['Head'] || '').trim(),
+          };
+        }).filter((m: any) => m.name !== '');
+
+        if (newMembers.length === 0) {
+          alert("Import tur hming thun a awm lo hmel khawp mai. Check tha leh rawh.");
+          return;
+        }
+
+        setLoading(true);
+
+        if (!isFirebaseConfigured || !db) {
+          const updatedMembers = [...members];
+          newMembers.forEach((nm, idx) => {
+            updatedMembers.push({
+              id: 'local_member_' + Date.now() + '_' + idx,
+              ...nm
+            } as Member);
+          });
+          setMembers(updatedMembers);
+          setLoading(false);
+          alert(`Successfully imported ${newMembers.length} members locally.`);
+        } else {
+          try {
+            for (const nm of newMembers) {
+              await addDoc(collection(db, 'members'), nm);
+            }
+            await fetchMembers();
+            alert(`Successfully imported ${newMembers.length} members.`);
+          } catch (error) {
+            console.error("Error importing members:", error);
+            alert("Failed to import members.");
+          } finally {
+            setLoading(false);
+          }
+        }
+      }
+    });
+    // Reset file input value
+    e.target.value = '';
+  };
+
   const handleOpenModal = (member?: Member) => {
     if (member) {
       setEditingMember(member);
@@ -68,12 +153,18 @@ export default function Directory() {
   };
 
   const handleSave = async () => {
-    if (!name || !address || !phone || !upaBial || !familyHead) {
-      alert("Please fill in all fields.");
+    if (!name.trim()) {
+      alert("Please fill in the Name field.");
       return;
     }
 
-    const memberData = { name, phone, address, upaBial, familyHead };
+    const memberData = { 
+      name: name.trim(), 
+      phone: phone.trim(), 
+      address: address.trim(), 
+      upaBial: upaBial.trim(), 
+      familyHead: familyHead.trim() 
+    };
 
     if (!isFirebaseConfigured || !db) {
       alert("Firebase not configured. Cannot save.");
@@ -120,13 +211,38 @@ export default function Directory() {
           <p className="mt-1 text-stone-500 font-sans text-xs uppercase tracking-widest">Church members and contact information</p>
         </div>
         {isAdmin && (
-          <button 
-            onClick={() => handleOpenModal()}
-            className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Member
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button 
+              onClick={downloadCsvTemplate}
+              className="bg-white text-[#5A5A40] border border-[#ecece0] px-4 py-2.5 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition font-sans flex items-center gap-2"
+              title="Download sample CSV template for importing"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Template
+            </button>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2.5 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition font-sans flex items-center gap-2"
+              title="Import members from CSV"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Import CSV
+            </button>
+            <button 
+              onClick={() => handleOpenModal()}
+              className="bg-[#5A5A40] text-white px-4 py-2.5 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition shrink-0 font-sans flex items-center gap-2"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Member
+            </button>
+            <input 
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".csv"
+              className="hidden"
+            />
+          </div>
         )}
       </div>
 
@@ -178,10 +294,7 @@ export default function Directory() {
                     </td>
                     <td className="px-6 py-5 whitespace-nowrap">
                       <div className="flex flex-col space-y-1.5 text-xs text-stone-500">
-                        <div className="flex items-center">
-                          <Phone className="w-3.5 h-3.5 mr-2 text-stone-400" />
-                          {member.phone}
-                        </div>
+                        <PhoneLink phone={member.phone} showIcon={true} />
                         <div className="flex items-center">
                           <MapPin className="w-3.5 h-3.5 mr-2 text-stone-400" />
                           {member.address}

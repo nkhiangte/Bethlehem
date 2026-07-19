@@ -5,6 +5,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy 
 import { Upa } from '../types';
 import { uploadImageToImgbb } from '../lib/imgbb';
 import { useAuth } from '../lib/auth';
+import { PhoneLink } from '../components/PhoneLink';
 
 export default function Elders() {
   const { isAdmin } = useAuth();
@@ -286,10 +287,7 @@ export default function Elders() {
                 </p>
               </div>
               <div className="px-7 py-5 flex items-center justify-between">
-                <div className="flex items-center text-xs font-semibold text-[#2d2d2a] font-sans uppercase tracking-widest">
-                  <Phone className="w-4 h-4 mr-2 text-[#5A5A40]" />
-                  {upa.phone}
-                </div>
+                <PhoneLink phone={upa.phone} className="text-xs font-semibold uppercase tracking-widest" />
               </div>
             </div>
           ))}

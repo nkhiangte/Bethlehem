@@ -16,7 +16,8 @@ import {
   HeartHandshake,
   LogOut,
   LogIn,
-  ShieldCheck
+  ShieldCheck,
+  Info
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { isFirebaseConfigured } from '../lib/firebase';
@@ -35,6 +36,7 @@ const navItems = [
   { name: 'Archive', path: '/archive', icon: History },
   { name: 'Records', path: '/records', icon: ArchiveRestore },
   { name: 'Gallery', path: '/gallery', icon: ImageIcon },
+  { name: 'About Us', path: '/about', icon: Info },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
