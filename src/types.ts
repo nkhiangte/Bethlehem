@@ -21,30 +21,60 @@ export interface Member {
   dzk?: boolean;
 }
 
-export type RecordType = 
-  | 'baptism' 
-  | 'marriage' 
-  | 'death' 
-  | 'pem' // emigrate
-  | 'dawnsawn' // immigrate
-  | 'testimonial_received' 
-  | 'testimonial_disbursement' 
-  | 'converted'; // pawl dang atanga lo pakai
+export interface RecordCategory {
+  id: string;
+  name: string;
+  description?: string;
+  isBuiltIn?: boolean;
+}
+
+export interface RecordSubcategory {
+  id: string;
+  categoryId: string;
+  name: string;
+  code?: string;
+  description?: string;
+  isBuiltIn?: boolean;
+}
+
+export type RecordType = string;
 
 export interface ChurchRecord {
   id: string;
   memberId?: string;
   memberName: string;
   type: RecordType;
+  categoryId?: string;
+  subcategoryId?: string;
   date: string;
-  details: string;
+  details?: string;
   officiant?: string;
   birthDate?: string;
   groomName?: string;
   brideName?: string;
   deathReason?: string;
   familyMembers?: string;
+  upaBial?: string;
+  month?: string;
+  [key: string]: any;
 }
+
+export const DEFAULT_RECORD_CATEGORIES: RecordCategory[] = [
+  { id: 'church_records', name: 'Church Records', description: 'Digital registry of church records and sacraments', isBuiltIn: true },
+  { id: 'damlo_kan', name: 'Damlo Kan', description: 'Record of sick and hospitalized member visits', isBuiltIn: true },
+];
+
+export const DEFAULT_RECORD_SUBCATEGORIES: RecordSubcategory[] = [
+  { id: 'baptism', categoryId: 'church_records', name: 'Baptisma', code: 'baptism', isBuiltIn: true },
+  { id: 'marriage', categoryId: 'church_records', name: 'Inneih', code: 'marriage', isBuiltIn: true },
+  { id: 'death', categoryId: 'church_records', name: 'Mitthi', code: 'death', isBuiltIn: true },
+  { id: 'pem', categoryId: 'church_records', name: 'Pem (Emigrate)', code: 'pem', isBuiltIn: true },
+  { id: 'dawnsawn', categoryId: 'church_records', name: 'Dawnsawn (Immigrate)', code: 'dawnsawn', isBuiltIn: true },
+  { id: 'testimonial_received', categoryId: 'church_records', name: 'Testimonial dawn', code: 'testimonial_received', isBuiltIn: true },
+  { id: 'testimonial_disbursement', categoryId: 'church_records', name: 'Testimonial pekchhuah', code: 'testimonial_disbursement', isBuiltIn: true },
+  { id: 'converted', categoryId: 'church_records', name: 'Pawl dang atanga lo pakai', code: 'converted', isBuiltIn: true },
+  { id: 'damlokan_general', categoryId: 'damlo_kan', name: 'Damlo Kan List', code: 'damlokan_general', isBuiltIn: true },
+];
 
 export interface ProgramRole {
   role: string;

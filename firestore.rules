@@ -13,12 +13,12 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Assuming all authenticated users who have an account are trusted, 
-      // or we can check the users collection for the 'admin' role.
-      // For simplicity and since we only allow nkhiangte@gmail.com to create initial accounts:
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Allow authenticated user if email matches primary admin or if user document has admin role
+      return isAuthenticated() && (
+        request.auth.token.email == 'nkhiangte@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
     // Users collection
@@ -48,6 +48,16 @@ service cloud.firestore {
     }
 
     match /records/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /record_categories/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /record_subcategories/{document=**} {
       allow read: if true;
       allow write: if isAdmin();
     }
