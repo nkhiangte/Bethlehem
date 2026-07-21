@@ -22,6 +22,14 @@ export default function Home() {
 
   const fetchNews = async () => {
     if (!isFirebaseConfigured || !db) {
+      const cached = localStorage.getItem('bethlehem_news');
+      if (cached) {
+        try {
+          setNews(JSON.parse(cached));
+        } catch (e) {
+          setNews([]);
+        }
+      }
       setLoading(false);
       return;
     }
@@ -42,30 +50,52 @@ export default function Home() {
 
   const handleAddNews = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || !newTitle.trim() || !newContent.trim()) return;
+    if (!newTitle.trim() || !newContent.trim()) return;
+
+    const newArticle = {
+      title: newTitle.trim(),
+      content: newContent,
+      date: new Date().toISOString(),
+    };
+
+    if (!isFirebaseConfigured || !db) {
+      const currentNews = [{ id: 'local_news_' + Date.now(), ...newArticle }, ...news];
+      localStorage.setItem('bethlehem_news', JSON.stringify(currentNews));
+      setNews(currentNews);
+      setIsAdding(false);
+      setNewTitle('');
+      setNewContent('');
+      alert("News saved locally (Firebase not fully configured).");
+      return;
+    }
 
     try {
-      const docRef = await addDoc(collection(db, 'news'), {
-        title: newTitle,
-        content: newContent,
-        date: new Date().toISOString(),
-      });
-      setNews([{ id: docRef.id, title: newTitle, content: newContent, date: new Date().toISOString() }, ...news]);
+      const docRef = await addDoc(collection(db, 'news'), newArticle);
+      setNews([{ id: docRef.id, ...newArticle }, ...news]);
       setIsAdding(false);
       setNewTitle('');
       setNewContent('');
     } catch (error) {
-      console.error("Error adding news:", error);
+      console.error("Error adding news to Firestore:", error);
+      alert("Failed to save news to Firestore.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!db || !window.confirm('Are you sure you want to delete this news article?')) return;
+    if (!window.confirm('Are you sure you want to delete this news article?')) return;
+
+    if (!isFirebaseConfigured || !db) {
+      const currentNews = news.filter(n => n.id !== id);
+      localStorage.setItem('bethlehem_news', JSON.stringify(currentNews));
+      setNews(currentNews);
+      return;
+    }
+
     try {
       await deleteDoc(doc(db, 'news', id));
       setNews(news.filter(n => n.id !== id));
     } catch (error) {
-      console.error("Error deleting news:", error);
+      console.error("Error deleting news from Firestore:", error);
     }
   };
 
