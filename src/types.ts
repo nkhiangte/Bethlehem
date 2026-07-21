@@ -171,6 +171,7 @@ export interface NewsArticle {
   content: string; // Rich text (HTML or Markdown)
   date: string;
   author?: string;
+  imageUrl?: string;
 }
 
 export interface GalleryFolder {
