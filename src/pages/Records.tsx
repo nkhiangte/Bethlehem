@@ -1,6 +1,6 @@
 import { useAuth } from '../lib/auth';
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
-import { Plus, X, Pencil, Trash2, Upload, ArrowLeft, Search, FolderPlus, Folder, FileText, Calendar, Tag, AlertCircle } from 'lucide-react';
+import { Plus, X, Pencil, Trash2, Upload, ArrowLeft, Search, FolderPlus, Folder, FileText, Calendar, Tag, AlertCircle, Sliders, ListPlus, Settings, Check } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { 
@@ -9,6 +9,7 @@ import {
   ChurchRecord, 
   DamloKanRecord, 
   Upa, 
+  RecordFieldDefinition,
   DEFAULT_RECORD_CATEGORIES, 
   DEFAULT_RECORD_SUBCATEGORIES 
 } from '../types';
@@ -35,6 +36,7 @@ export default function Records() {
   const [editingCategory, setEditingCategory] = useState<RecordCategory | null>(null);
   const [catName, setCatName] = useState('');
   const [catDescription, setCatDescription] = useState('');
+  const [catFields, setCatFields] = useState<RecordFieldDefinition[]>([]);
 
   // Subcategory Modal State
   const [isSubcategoryModalOpen, setIsSubcategoryModalOpen] = useState(false);
@@ -42,12 +44,23 @@ export default function Records() {
   const [subCatCategoryId, setSubCatCategoryId] = useState('');
   const [subCatName, setSubCatName] = useState('');
   const [subCatDescription, setSubCatDescription] = useState('');
+  const [subCatFields, setSubCatFields] = useState<RecordFieldDefinition[]>([]);
+
+  // Field Editor Form State
+  const [fieldEditorTarget, setFieldEditorTarget] = useState<'category' | 'subcategory' | null>(null);
+  const [isFieldFormOpen, setIsFieldFormOpen] = useState(false);
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
+  const [fieldName, setFieldName] = useState('');
+  const [fieldType, setFieldType] = useState<'text' | 'number' | 'date' | 'select' | 'textarea'>('text');
+  const [fieldOptions, setFieldOptions] = useState('');
+  const [fieldRequired, setFieldRequired] = useState(false);
 
   // Record Entry Modal State
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ChurchRecord | null>(null);
   const [recordCategoryId, setRecordCategoryId] = useState('');
   const [recordSubcategoryId, setRecordSubcategoryId] = useState('');
+  const [recordCustomValues, setRecordCustomValues] = useState<Record<string, any>>({});
   
   // Record Form Fields
   const [recordMemberName, setRecordMemberName] = useState('');
@@ -177,16 +190,86 @@ export default function Records() {
     }
   };
 
+  // --- FIELD DEFINITION HELPERS ---
+  const openAddFieldForm = (target: 'category' | 'subcategory') => {
+    setFieldEditorTarget(target);
+    setEditingFieldId(null);
+    setFieldName('');
+    setFieldType('text');
+    setFieldOptions('');
+    setFieldRequired(false);
+    setIsFieldFormOpen(true);
+  };
+
+  const openEditFieldForm = (target: 'category' | 'subcategory', field: RecordFieldDefinition) => {
+    setFieldEditorTarget(target);
+    setEditingFieldId(field.id);
+    setFieldName(field.name);
+    setFieldType(field.type);
+    setFieldOptions(field.options?.join(', ') || '');
+    setFieldRequired(!!field.required);
+    setIsFieldFormOpen(true);
+  };
+
+  const handleSaveFieldDefinition = () => {
+    if (!fieldName.trim() || !fieldEditorTarget) return;
+
+    const optionsArr = fieldType === 'select'
+      ? fieldOptions.split(',').map(s => s.trim()).filter(Boolean)
+      : undefined;
+
+    const fieldData: RecordFieldDefinition = {
+      id: editingFieldId || 'f_' + Date.now(),
+      name: fieldName.trim(),
+      type: fieldType,
+      options: optionsArr,
+      required: fieldRequired,
+    };
+
+    if (fieldEditorTarget === 'category') {
+      if (editingFieldId) {
+        setCatFields(prev => prev.map(f => f.id === editingFieldId ? fieldData : f));
+      } else {
+        setCatFields(prev => [...prev, fieldData]);
+      }
+    } else {
+      if (editingFieldId) {
+        setSubCatFields(prev => prev.map(f => f.id === editingFieldId ? fieldData : f));
+      } else {
+        setSubCatFields(prev => [...prev, fieldData]);
+      }
+    }
+
+    setIsFieldFormOpen(false);
+    setEditingFieldId(null);
+    setFieldName('');
+    setFieldType('text');
+    setFieldOptions('');
+    setFieldRequired(false);
+  };
+
+  const handleDeleteFieldDefinition = (target: 'category' | 'subcategory', fieldId: string) => {
+    if (target === 'category') {
+      setCatFields(prev => prev.filter(f => f.id !== fieldId));
+    } else {
+      setSubCatFields(prev => prev.filter(f => f.id !== fieldId));
+    }
+  };
+
   // --- CATEGORY ACTIONS ---
   const openCategoryModal = (category?: RecordCategory) => {
+    setIsFieldFormOpen(false);
+    setEditingFieldId(null);
     if (category) {
       setEditingCategory(category);
       setCatName(category.name);
       setCatDescription(category.description || '');
+      setCatFields(category.fields ? [...category.fields] : []);
     } else {
       setEditingCategory(null);
       setCatName('');
       setCatDescription('');
+      setCatFields([]);
     }
     setIsCategoryModalOpen(true);
   };
@@ -197,6 +280,7 @@ export default function Records() {
     const categoryData: Partial<RecordCategory> = {
       name: catName.trim(),
       description: catDescription.trim(),
+      fields: catFields,
     };
 
     if (!isFirebaseConfigured || !db) {
@@ -210,7 +294,8 @@ export default function Records() {
           id: 'cat_' + Date.now(),
           name: catName.trim(),
           description: catDescription.trim(),
-          isBuiltIn: false
+          isBuiltIn: false,
+          fields: catFields,
         };
         currentLocalCats.push(newCat);
         setCategories(prev => [...prev, newCat]);
@@ -246,7 +331,8 @@ export default function Records() {
           id: 'cat_' + Date.now(),
           name: catName.trim(),
           description: catDescription.trim(),
-          isBuiltIn: false
+          isBuiltIn: false,
+          fields: catFields,
         };
         currentLocalCats.push(newCat);
         setCategories(prev => [...prev, newCat]);
@@ -295,16 +381,20 @@ export default function Records() {
 
   // --- SUBCATEGORY ACTIONS ---
   const openSubcategoryModal = (subcat?: RecordSubcategory) => {
+    setIsFieldFormOpen(false);
+    setEditingFieldId(null);
     if (subcat) {
       setEditingSubcategory(subcat);
       setSubCatCategoryId(subcat.categoryId);
       setSubCatName(subcat.name);
       setSubCatDescription(subcat.description || '');
+      setSubCatFields(subcat.fields ? [...subcat.fields] : []);
     } else {
       setEditingSubcategory(null);
       setSubCatCategoryId(activeCategoryId);
       setSubCatName('');
       setSubCatDescription('');
+      setSubCatFields([]);
     }
     setIsSubcategoryModalOpen(true);
   };
@@ -316,6 +406,7 @@ export default function Records() {
       categoryId: subCatCategoryId,
       name: subCatName.trim(),
       description: subCatDescription.trim(),
+      fields: subCatFields,
     };
 
     if (!isFirebaseConfigured || !db) {
@@ -331,7 +422,8 @@ export default function Records() {
           name: subCatName.trim(),
           description: subCatDescription.trim(),
           code: 'custom_' + Date.now(),
-          isBuiltIn: false
+          isBuiltIn: false,
+          fields: subCatFields,
         };
         currentLocalSubs.push(newSub);
         setSubcategories(prev => [...prev, newSub]);
@@ -369,7 +461,8 @@ export default function Records() {
           name: subCatName.trim(),
           description: subCatDescription.trim(),
           code: 'custom_' + Date.now(),
-          isBuiltIn: false
+          isBuiltIn: false,
+          fields: subCatFields,
         };
         currentLocalSubs.push(newSub);
         setSubcategories(prev => [...prev, newSub]);
@@ -436,6 +529,7 @@ export default function Records() {
       setRecordFamilyMembers(record.familyMembers || '');
       setRecordUpaBial(record.upaBial || '');
       setRecordMonth(record.month || '');
+      setRecordCustomValues(record.customFields || {});
     } else {
       setEditingRecord(null);
       setRecordCategoryId(curCatId);
@@ -451,6 +545,7 @@ export default function Records() {
       setRecordFamilyMembers('');
       setRecordUpaBial(upas[0]?.bial || '');
       setRecordMonth(new Date().toISOString().slice(0, 7));
+      setRecordCustomValues({});
     }
     setIsRecordModalOpen(true);
   };
@@ -474,6 +569,7 @@ export default function Records() {
       officiant: recordOfficiant.trim(),
       upaBial: recordUpaBial,
       month: recordMonth,
+      customFields: recordCustomValues,
     };
 
     if (subTypeCode === 'baptism') {
@@ -658,6 +754,90 @@ export default function Records() {
     );
   });
 
+  const renderInlineFieldForm = () => (
+    <div className="p-4 bg-white border border-[#5A5A40]/30 rounded-2xl space-y-3 shadow-sm mt-3 font-sans">
+      <div className="flex justify-between items-center pb-2 border-b border-[#ecece0]">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-[#5A5A40]">
+          {editingFieldId ? 'Edit Custom Field' : 'New Custom Field'}
+        </h4>
+        <button type="button" onClick={() => setIsFieldFormOpen(false)} className="text-stone-400 hover:text-stone-600">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div>
+        <label className="block text-[9px] uppercase font-bold text-stone-500 tracking-widest mb-1">Field Label / Name</label>
+        <input
+          type="text"
+          value={fieldName}
+          onChange={e => setFieldName(e.target.value)}
+          placeholder="e.g. Certificate No., Amount, Location, Receipt ID"
+          className="w-full p-2.5 bg-[#fcfaf7] border border-[#ecece0] rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-[9px] uppercase font-bold text-stone-500 tracking-widest mb-1">Field Type</label>
+          <select
+            value={fieldType}
+            onChange={e => setFieldType(e.target.value as any)}
+            className="w-full p-2.5 bg-[#fcfaf7] border border-[#ecece0] rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+          >
+            <option value="text">Short Text</option>
+            <option value="number">Number</option>
+            <option value="date">Date</option>
+            <option value="select">Dropdown (Select)</option>
+            <option value="textarea">Long Text (Textarea)</option>
+          </select>
+        </div>
+
+        <div className="flex items-center pt-3">
+          <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-stone-700">
+            <input
+              type="checkbox"
+              checked={fieldRequired}
+              onChange={e => setFieldRequired(e.target.checked)}
+              className="rounded border-[#ecece0] text-[#5A5A40] focus:ring-[#5A5A40]"
+            />
+            <span>Required Field</span>
+          </label>
+        </div>
+      </div>
+
+      {fieldType === 'select' && (
+        <div>
+          <label className="block text-[9px] uppercase font-bold text-stone-500 tracking-widest mb-1">Dropdown Options (Comma separated)</label>
+          <input
+            type="text"
+            value={fieldOptions}
+            onChange={e => setFieldOptions(e.target.value)}
+            placeholder="Option 1, Option 2, Option 3"
+            className="w-full p-2.5 bg-[#fcfaf7] border border-[#ecece0] rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+          />
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 pt-2 border-t border-[#ecece0]">
+        <button
+          type="button"
+          onClick={() => setIsFieldFormOpen(false)}
+          className="px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold text-stone-500 hover:bg-stone-100"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSaveFieldDefinition}
+          className="px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold bg-[#5A5A40] text-white hover:bg-[#4a4a35]"
+        >
+          {editingFieldId ? 'Update Field' : 'Add Field'}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
@@ -719,7 +899,7 @@ export default function Records() {
                 {cat.name}
               </button>
 
-              {isAdmin && !cat.isBuiltIn && (
+              {isAdmin && (
                 <div className="flex items-center opacity-80 group-hover:opacity-100 transition-opacity pr-2">
                   <button
                     onClick={(e) => {
@@ -727,20 +907,22 @@ export default function Records() {
                       openCategoryModal(cat);
                     }}
                     className="p-1 text-stone-400 hover:text-[#5A5A40]"
-                    title="Edit Category"
+                    title="Edit Category & Fields"
                   >
                     <Pencil className="w-3 h-3" />
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteCategory(cat);
-                    }}
-                    className="p-1 text-red-400 hover:text-red-600"
-                    title="Delete Category"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  {!cat.isBuiltIn && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCategory(cat);
+                      }}
+                      className="p-1 text-red-400 hover:text-red-600"
+                      title="Delete Category"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -790,22 +972,24 @@ export default function Records() {
                       <span className="text-[#5A5A40] font-serif italic text-xl group-hover:text-[#4a4a35] transition-colors">
                         {sub.name}
                       </span>
-                      {isAdmin && !sub.isBuiltIn && (
+                      {isAdmin && (
                         <div className="flex items-center gap-1 z-10" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => openSubcategoryModal(sub)}
                             className="p-1 text-stone-400 hover:text-[#5A5A40]"
-                            title="Edit Subcategory"
+                            title="Edit Subcategory & Fields"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteSubcategory(sub)}
-                            className="p-1 text-red-400 hover:text-red-600"
-                            title="Delete Subcategory"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {!sub.isBuiltIn && (
+                            <button
+                              onClick={() => handleDeleteSubcategory(sub)}
+                              className="p-1 text-red-400 hover:text-red-600"
+                              title="Delete Subcategory"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -815,7 +999,15 @@ export default function Records() {
                   </div>
 
                   <div className="pt-4 border-t border-[#f5f5f0] flex justify-between items-center text-[10px] uppercase font-bold text-stone-400">
-                    <span>{recCount} {recCount === 1 ? 'Record' : 'Records'}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{recCount} {recCount === 1 ? 'Record' : 'Records'}</span>
+                      {sub.fields && sub.fields.length > 0 && (
+                        <span className="px-1.5 py-0.5 bg-[#f0f0e8] text-[#5A5A40] rounded text-[9px] flex items-center gap-1 font-semibold">
+                          <Sliders className="w-2.5 h-2.5" />
+                          {sub.fields.length} {sub.fields.length === 1 ? 'field' : 'fields'}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[#5A5A40] group-hover:translate-x-1 transition-transform">
                       View Entries &rarr;
                     </span>
@@ -969,6 +1161,33 @@ export default function Records() {
                           )}
                         </div>
 
+                        {/* Custom Field Values Display */}
+                        {(() => {
+                          const customVals = record.customFields || {};
+                          const keys = Object.keys(customVals);
+                          if (keys.length === 0) return null;
+
+                          const catF = currentCategory?.fields || [];
+                          const subF = currentSubcategory?.fields || [];
+                          const allF = [...catF, ...subF];
+
+                          return (
+                            <div className="flex flex-wrap gap-x-5 gap-y-1 my-2 pt-2 border-t border-[#f5f5f0]">
+                              {keys.map(k => {
+                                const val = customVals[k];
+                                if (val === undefined || val === null || val === '') return null;
+                                const fieldDef = allF.find(f => f.id === k || f.name === k);
+                                const label = fieldDef ? fieldDef.name : k;
+                                return (
+                                  <p key={k} className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                                    {label}: <span className="text-[#5A5A40]">{String(val)}</span>
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+
                         {record.details && (
                           <p className="text-sm text-[#2d2d2a] font-sans mt-2">{record.details}</p>
                         )}
@@ -1020,9 +1239,9 @@ export default function Records() {
 
       {/* MODAL 1: ADD / EDIT CATEGORY */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-md shadow-xl border border-[#e0e0d5] overflow-hidden">
-            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white">
+        <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto py-10">
+          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-lg shadow-xl border border-[#e0e0d5] overflow-hidden my-auto">
+            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white sticky top-0 z-10">
               <h2 className="text-xl font-serif italic text-[#5A5A40]">
                 {editingCategory ? 'Edit Category' : 'Add New Category'}
               </h2>
@@ -1031,7 +1250,7 @@ export default function Records() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 font-sans">
+            <div className="p-6 space-y-4 font-sans max-h-[75vh] overflow-y-auto">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Category Name</label>
                 <input
@@ -1050,13 +1269,74 @@ export default function Records() {
                   value={catDescription}
                   onChange={e => setCatDescription(e.target.value)}
                   placeholder="e.g. Registry for church financial statements and audits"
-                  rows={3}
+                  rows={2}
                   className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] resize-none"
                 />
               </div>
+
+              {/* Custom Fields Builder */}
+              <div className="pt-4 border-t border-[#e0e0d5] space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] uppercase font-bold text-[#5A5A40] tracking-widest flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5" />
+                    Custom Category Fields ({catFields.length})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => openAddFieldForm('category')}
+                    className="text-[10px] uppercase font-bold tracking-wider text-[#5A5A40] bg-[#e8e8dc] hover:bg-[#deded0] px-2.5 py-1 rounded-lg transition flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add Field
+                  </button>
+                </div>
+
+                {catFields.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {catFields.map(field => (
+                      <div key={field.id} className="flex items-center justify-between p-2.5 bg-white border border-[#ecece0] rounded-xl text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-stone-700">{field.name}</span>
+                          <span className="px-1.5 py-0.5 bg-stone-100 border border-stone-200 rounded text-[9px] font-mono text-stone-500 uppercase">
+                            {field.type}
+                          </span>
+                          {field.required && (
+                            <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider">Required</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditFieldForm('category', field)}
+                            className="p-1 text-stone-400 hover:text-[#5A5A40]"
+                            title="Edit Field"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFieldDefinition('category', field.id)}
+                            className="p-1 text-stone-400 hover:text-red-500"
+                            title="Delete Field"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-stone-400 italic bg-white/50 p-3 rounded-xl border border-dashed border-[#d0d0c5]">
+                    No custom fields added. Click "+ Add Field" to create fields like Certificate ID, Amount, Location, etc.
+                  </p>
+                )}
+
+                {/* Inline Field Editor Form */}
+                {isFieldFormOpen && fieldEditorTarget === 'category' && renderInlineFieldForm()}
+              </div>
             </div>
 
-            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3">
+            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 sticky bottom-0 z-10">
               <button
                 type="button"
                 onClick={() => setIsCategoryModalOpen(false)}
@@ -1078,9 +1358,9 @@ export default function Records() {
 
       {/* MODAL 2: ADD / EDIT SUBCATEGORY */}
       {isSubcategoryModalOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-md shadow-xl border border-[#e0e0d5] overflow-hidden">
-            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white">
+        <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto py-10">
+          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-lg shadow-xl border border-[#e0e0d5] overflow-hidden my-auto">
+            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white sticky top-0 z-10">
               <h2 className="text-xl font-serif italic text-[#5A5A40]">
                 {editingSubcategory ? 'Edit Subcategory' : 'Add New Subcategory'}
               </h2>
@@ -1089,7 +1369,7 @@ export default function Records() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4 font-sans">
+            <div className="p-6 space-y-4 font-sans max-h-[75vh] overflow-y-auto">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Parent Category</label>
                 <select
@@ -1125,9 +1405,70 @@ export default function Records() {
                   className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] resize-none"
                 />
               </div>
+
+              {/* Custom Fields Builder */}
+              <div className="pt-4 border-t border-[#e0e0d5] space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] uppercase font-bold text-[#5A5A40] tracking-widest flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5" />
+                    Custom Subcategory Fields ({subCatFields.length})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => openAddFieldForm('subcategory')}
+                    className="text-[10px] uppercase font-bold tracking-wider text-[#5A5A40] bg-[#e8e8dc] hover:bg-[#deded0] px-2.5 py-1 rounded-lg transition flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add Field
+                  </button>
+                </div>
+
+                {subCatFields.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {subCatFields.map(field => (
+                      <div key={field.id} className="flex items-center justify-between p-2.5 bg-white border border-[#ecece0] rounded-xl text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-stone-700">{field.name}</span>
+                          <span className="px-1.5 py-0.5 bg-stone-100 border border-stone-200 rounded text-[9px] font-mono text-stone-500 uppercase">
+                            {field.type}
+                          </span>
+                          {field.required && (
+                            <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider">Required</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditFieldForm('subcategory', field)}
+                            className="p-1 text-stone-400 hover:text-[#5A5A40]"
+                            title="Edit Field"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFieldDefinition('subcategory', field.id)}
+                            className="p-1 text-stone-400 hover:text-red-500"
+                            title="Delete Field"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-stone-400 italic bg-white/50 p-3 rounded-xl border border-dashed border-[#d0d0c5]">
+                    No custom fields added. Click "+ Add Field" to create fields like Receipt ID, Amount, Location, etc.
+                  </p>
+                )}
+
+                {/* Inline Field Editor Form */}
+                {isFieldFormOpen && fieldEditorTarget === 'subcategory' && renderInlineFieldForm()}
+              </div>
             </div>
 
-            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3">
+            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 sticky bottom-0 z-10">
               <button
                 type="button"
                 onClick={() => setIsSubcategoryModalOpen(false)}
@@ -1427,6 +1768,95 @@ export default function Records() {
                       </div>
                     </div>
                   </>
+                );
+              })()}
+
+              {/* Custom Category & Subcategory Fields */}
+              {(() => {
+                const cat = categories.find(c => c.id === recordCategoryId);
+                const sub = subcategories.find(s => s.id === recordSubcategoryId);
+                const catFieldsList = cat?.fields || [];
+                const subFieldsList = sub?.fields || [];
+                const allCustomFields = [...catFieldsList, ...subFieldsList];
+
+                if (allCustomFields.length === 0) return null;
+
+                return (
+                  <div className="pt-4 border-t border-[#e0e0d5] space-y-3 font-sans">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#5A5A40] uppercase tracking-wider">
+                      <Sliders className="w-4 h-4" />
+                      Custom Category & Subcategory Fields
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {allCustomFields.map(field => {
+                        const val = recordCustomValues[field.id] ?? recordCustomValues[field.name] ?? '';
+                        return (
+                          <div key={field.id} className={field.type === 'textarea' ? 'col-span-full' : ''}>
+                            <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">
+                              {field.name} {field.required && <span className="text-red-500">*</span>}
+                            </label>
+
+                            {field.type === 'text' && (
+                              <input
+                                type="text"
+                                value={val}
+                                onChange={e => setRecordCustomValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                placeholder={`Enter ${field.name}...`}
+                                className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                                required={field.required}
+                              />
+                            )}
+
+                            {field.type === 'number' && (
+                              <input
+                                type="number"
+                                value={val}
+                                onChange={e => setRecordCustomValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                placeholder={`Enter ${field.name}...`}
+                                className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                                required={field.required}
+                              />
+                            )}
+
+                            {field.type === 'date' && (
+                              <input
+                                type="date"
+                                value={val}
+                                onChange={e => setRecordCustomValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                                required={field.required}
+                              />
+                            )}
+
+                            {field.type === 'select' && (
+                              <select
+                                value={val}
+                                onChange={e => setRecordCustomValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                                required={field.required}
+                              >
+                                <option value="">-- Choose {field.name} --</option>
+                                {field.options?.map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            )}
+
+                            {field.type === 'textarea' && (
+                              <textarea
+                                value={val}
+                                onChange={e => setRecordCustomValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                placeholder={`Enter ${field.name}...`}
+                                rows={2}
+                                className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] resize-none"
+                                required={field.required}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })()}
 

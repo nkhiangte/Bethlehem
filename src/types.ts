@@ -21,11 +21,20 @@ export interface Member {
   dzk?: boolean;
 }
 
+export interface RecordFieldDefinition {
+  id: string;
+  name: string;
+  type: 'text' | 'number' | 'date' | 'select' | 'textarea';
+  options?: string[];
+  required?: boolean;
+}
+
 export interface RecordCategory {
   id: string;
   name: string;
   description?: string;
   isBuiltIn?: boolean;
+  fields?: RecordFieldDefinition[];
 }
 
 export interface RecordSubcategory {
@@ -35,6 +44,7 @@ export interface RecordSubcategory {
   code?: string;
   description?: string;
   isBuiltIn?: boolean;
+  fields?: RecordFieldDefinition[];
 }
 
 export type RecordType = string;
@@ -56,6 +66,7 @@ export interface ChurchRecord {
   familyMembers?: string;
   upaBial?: string;
   month?: string;
+  customFields?: Record<string, any>;
   [key: string]: any;
 }
 
