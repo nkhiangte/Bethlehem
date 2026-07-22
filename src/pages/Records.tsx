@@ -127,8 +127,8 @@ export default function Records() {
       if (localCats) {
         const parsed: RecordCategory[] = JSON.parse(localCats);
         parsed.forEach(c => {
-          if (!mergedCats.some(mc => mc.id === c.id)) mergedCats.push(c);
-          else {
+          if (c.id !== 'damlo_kan' && !mergedCats.some(mc => mc.id === c.id)) mergedCats.push(c);
+          else if (c.id !== 'damlo_kan') {
             const idx = mergedCats.findIndex(mc => mc.id === c.id);
             mergedCats[idx] = c;
           }
@@ -145,6 +145,11 @@ export default function Records() {
           }
         });
       }
+      
+      // Clean up legacy damlo_kan category
+      mergedCats = mergedCats.filter(c => c.id !== 'damlo_kan');
+      mergedSubs = mergedSubs.map(s => s.categoryId === 'damlo_kan' ? { ...s, categoryId: 'church_records' } : s);
+
       setCategories(mergedCats);
       setSubcategories(mergedSubs);
       return;
@@ -154,9 +159,11 @@ export default function Records() {
       const catSnap = await getDocs(collection(db, 'record_categories'));
       const customCats = catSnap.docs.map(d => ({ id: d.id, ...d.data() } as RecordCategory));
       customCats.forEach(c => {
-        const idx = mergedCats.findIndex(mc => mc.id === c.id);
-        if (idx !== -1) mergedCats[idx] = c;
-        else mergedCats.push(c);
+        if (c.id !== 'damlo_kan') {
+          const idx = mergedCats.findIndex(mc => mc.id === c.id);
+          if (idx !== -1) mergedCats[idx] = c;
+          else mergedCats.push(c);
+        }
       });
 
       const subSnap = await getDocs(collection(db, 'record_subcategories'));
@@ -167,6 +174,9 @@ export default function Records() {
         else mergedSubs.push(s);
       });
 
+      mergedCats = mergedCats.filter(c => c.id !== 'damlo_kan');
+      mergedSubs = mergedSubs.map(s => s.categoryId === 'damlo_kan' ? { ...s, categoryId: 'church_records' } : s);
+
       setCategories(mergedCats);
       setSubcategories(mergedSubs);
     } catch (error) {
@@ -175,7 +185,7 @@ export default function Records() {
       if (localCats) {
         const parsed: RecordCategory[] = JSON.parse(localCats);
         parsed.forEach(c => {
-          if (!mergedCats.some(mc => mc.id === c.id)) mergedCats.push(c);
+          if (c.id !== 'damlo_kan' && !mergedCats.some(mc => mc.id === c.id)) mergedCats.push(c);
         });
       }
       const localSubs = localStorage.getItem('local_record_subcategories');
@@ -185,6 +195,9 @@ export default function Records() {
           if (!mergedSubs.some(ms => ms.id === s.id)) mergedSubs.push(s);
         });
       }
+      mergedCats = mergedCats.filter(c => c.id !== 'damlo_kan');
+      mergedSubs = mergedSubs.map(s => s.categoryId === 'damlo_kan' ? { ...s, categoryId: 'church_records' } : s);
+
       setCategories(mergedCats);
       setSubcategories(mergedSubs);
     }
@@ -583,24 +596,6 @@ export default function Records() {
       data.familyMembers = recordFamilyMembers;
     }
 
-    if (recordCategoryId === 'damlo_kan' || subTypeCode === 'damlokan_general') {
-      // Also sync to damlokan collection / local for backwards compatibility
-      const damloData = {
-        name: nameToSave.trim(),
-        month: recordMonth || recordDate.slice(0, 7),
-        upaBial: recordUpaBial
-      };
-
-      if (!isFirebaseConfigured || !db) {
-        const updatedDamlo = [...damloKanRecords];
-        updatedDamlo.push({ id: 'local_damlo_' + Date.now(), ...damloData });
-        localStorage.setItem('local_damlo_kan', JSON.stringify(updatedDamlo));
-        setDamloKanRecords(updatedDamlo);
-      } else {
-        addDoc(collection(db, 'damlokan'), damloData).catch(err => console.error(err));
-      }
-    }
-
     if (!isFirebaseConfigured || !db) {
       const updated = [...churchRecords];
       if (editingRecord) {
@@ -732,14 +727,11 @@ export default function Records() {
   const filteredSubcategoryRecords = churchRecords.filter(record => {
     if (!currentSubcategory) return false;
     
-    // Match by subcategoryId or code/type or categoryId
+    // Match by subcategoryId or code/type
     const isSubMatch = record.subcategoryId === currentSubcategory.id || 
                        record.type === currentSubcategory.code || 
-                       record.type === currentSubcategory.id;
-
-    if (!isSubMatch && currentCategory?.id === 'damlo_kan' && currentSubcategory.code === 'damlokan_general') {
-      return true; // render damlo kan items
-    }
+                       record.type === currentSubcategory.id ||
+                       (currentSubcategory.code === 'damlokan' && (record.subcategoryId === 'damlokan_general' || record.type === 'damlokan_general' || record.categoryId === 'damlo_kan'));
 
     if (!isSubMatch) return false;
 
@@ -1681,58 +1673,7 @@ export default function Records() {
                   );
                 }
 
-                if (subCode === 'damlokan_general' || recordCategoryId === 'damlo_kan') {
-                  return (
-                    <>
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Hming (Name)</label>
-                        <input
-                          type="text"
-                          value={recordMemberName}
-                          onChange={e => setRecordMemberName(e.target.value)}
-                          placeholder="e.g. Lalramhluna"
-                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Thla (Month)</label>
-                          <input
-                            type="month"
-                            value={recordMonth}
-                            onChange={e => setRecordMonth(e.target.value)}
-                            className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Upa Bial</label>
-                          {upas.length > 0 ? (
-                            <select
-                              value={recordUpaBial}
-                              onChange={e => setRecordUpaBial(e.target.value)}
-                              className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
-                            >
-                              <option value="">-- Choose Bial --</option>
-                              {upas.map(u => (
-                                <option key={u.id} value={u.bial}>{u.bial} ({u.name})</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              type="text"
-                              value={recordUpaBial}
-                              onChange={e => setRecordUpaBial(e.target.value)}
-                              placeholder="e.g. Bial 1"
-                              className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  );
-                }
-
-                // Default / Custom Subcategory Form
+                // Default / Custom Subcategory Form (including Damlo Kan)
                 return (
                   <>
                     <div>

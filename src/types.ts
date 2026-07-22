@@ -72,7 +72,6 @@ export interface ChurchRecord {
 
 export const DEFAULT_RECORD_CATEGORIES: RecordCategory[] = [
   { id: 'church_records', name: 'Church Records', description: 'Digital registry of church records and sacraments', isBuiltIn: true },
-  { id: 'damlo_kan', name: 'Damlo Kan', description: 'Record of sick and hospitalized member visits', isBuiltIn: true },
 ];
 
 export const DEFAULT_RECORD_SUBCATEGORIES: RecordSubcategory[] = [
@@ -84,7 +83,7 @@ export const DEFAULT_RECORD_SUBCATEGORIES: RecordSubcategory[] = [
   { id: 'testimonial_received', categoryId: 'church_records', name: 'Testimonial dawn', code: 'testimonial_received', isBuiltIn: true },
   { id: 'testimonial_disbursement', categoryId: 'church_records', name: 'Testimonial pekchhuah', code: 'testimonial_disbursement', isBuiltIn: true },
   { id: 'converted', categoryId: 'church_records', name: 'Pawl dang atanga lo pakai', code: 'converted', isBuiltIn: true },
-  { id: 'damlokan_general', categoryId: 'damlo_kan', name: 'Damlo Kan List', code: 'damlokan_general', isBuiltIn: true },
+  { id: 'damlokan', categoryId: 'church_records', name: 'Damlo Kan', code: 'damlokan', isBuiltIn: true },
 ];
 
 export interface ProgramRole {
