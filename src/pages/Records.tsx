@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Plus, X, Pencil, Trash2, Upload, Download, ArrowLeft, Search, FolderPlus, Folder, FileText, Calendar, Tag, AlertCircle, Sliders, ListPlus, Settings, Check } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, setDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { 
   RecordCategory, 
   RecordSubcategory, 
@@ -328,7 +328,7 @@ export default function Records() {
 
     try {
       if (editingCategory) {
-        await updateDoc(doc(db, 'record_categories', editingCategory.id), categoryData);
+        await setDoc(doc(db, 'record_categories', editingCategory.id), categoryData, { merge: true });
       } else {
         const newDoc = await addDoc(collection(db, 'record_categories'), {
           ...categoryData,
@@ -456,7 +456,7 @@ export default function Records() {
 
     try {
       if (editingSubcategory) {
-        await updateDoc(doc(db, 'record_subcategories', editingSubcategory.id), subcatData);
+        await setDoc(doc(db, 'record_subcategories', editingSubcategory.id), subcatData, { merge: true });
       } else {
         await addDoc(collection(db, 'record_subcategories'), {
           ...subcatData,
