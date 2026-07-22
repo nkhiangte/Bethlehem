@@ -78,6 +78,7 @@ export default function Records() {
   const [recordTawngtaisaktu, setRecordTawngtaisaktu] = useState('');
   const [recordThlanmualaHunHmangtu, setRecordThlanmualaHunHmangtu] = useState('');
   const [recordKohhranAtang, setRecordKohhranAtang] = useState('');
+  const [recordKohhranAh, setRecordKohhranAh] = useState('');
   const [recordHmun, setRecordHmun] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -551,6 +552,7 @@ export default function Records() {
       setRecordTawngtaisaktu(record.tawngtaisaktu || '');
       setRecordThlanmualaHunHmangtu(record.thlanmualaHunHmangtu || '');
       setRecordKohhranAtang(record.kohhranAtang || '');
+      setRecordKohhranAh(record.kohhranAh || record.kohhranAtang || '');
       setRecordHmun(record.hmun || record.location || '');
       setRecordCustomValues(record.customFields || {});
     } else {
@@ -572,6 +574,7 @@ export default function Records() {
       setRecordTawngtaisaktu('');
       setRecordThlanmualaHunHmangtu('');
       setRecordKohhranAtang('');
+      setRecordKohhranAh('');
       setRecordHmun('');
       setRecordCustomValues({});
     }
@@ -614,6 +617,7 @@ export default function Records() {
     } else if (['pem', 'dawnsawn', 'testimonial_received', 'testimonial_disbursement'].includes(subTypeCode)) {
       data.familyMembers = recordFamilyMembers;
       data.kohhranAtang = recordKohhranAtang.trim();
+      data.kohhranAh = recordKohhranAh.trim() || recordKohhranAtang.trim();
     }
 
     if (!isFirebaseConfigured || !db) {
@@ -774,6 +778,7 @@ export default function Records() {
       (record.tawngtaisaktu && record.tawngtaisaktu.toLowerCase().includes(q)) ||
       (record.thlanmualaHunHmangtu && record.thlanmualaHunHmangtu.toLowerCase().includes(q)) ||
       (record.kohhranAtang && record.kohhranAtang.toLowerCase().includes(q)) ||
+      (record.kohhranAh && record.kohhranAh.toLowerCase().includes(q)) ||
       (record.hmun && record.hmun.toLowerCase().includes(q)) ||
       (record.upaBial && record.upaBial.toLowerCase().includes(q)) ||
       (record.age && String(record.age).toLowerCase().includes(q))
@@ -1308,14 +1313,15 @@ export default function Records() {
 
                   // 4. Testimonial / Pem / Dawnsawn
                   if (['pem', 'dawnsawn', 'testimonial_received', 'testimonial_disbursement'].includes(subCode || '')) {
+                    const isOutward = ['testimonial_disbursement', 'pem'].includes(subCode || '');
                     return (
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
                             <th className="p-4 pl-6">Hming</th>
-                            <th className="p-4">Kohhran atang</th>
+                            <th className="p-4">{isOutward ? 'Kohhran ah' : 'Kohhran atang'}</th>
                             <th className="p-4">Date</th>
-                            <th className="p-4">Chhungkaw Member Zat</th>
+                            <th className="p-4">Member zat</th>
                             {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
                           </tr>
                         </thead>
@@ -1323,7 +1329,7 @@ export default function Records() {
                           {filteredSubcategoryRecords.map((record) => (
                             <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
                               <td className="p-4 pl-6 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
-                              <td className="p-4 text-stone-600">{record.kohhranAtang || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.kohhranAh || record.kohhranAtang || '-'}</td>
                               <td className="p-4 text-stone-600">{record.date || '-'}</td>
                               <td className="p-4 text-stone-600">{record.familyMembers || '-'}</td>
                               {isAdmin && (
@@ -1926,7 +1932,8 @@ export default function Records() {
                   );
                 }
 
-                if (['testimonial_received', 'dawnsawn', 'pem'].includes(subCode)) {
+                if (['testimonial_received', 'dawnsawn', 'pem', 'testimonial_disbursement'].includes(subCode)) {
+                  const isOutward = ['testimonial_disbursement', 'pem'].includes(subCode);
                   return (
                     <>
                       <div>
@@ -1942,11 +1949,16 @@ export default function Records() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Kohhran atang</label>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">
+                            {isOutward ? 'Kohhran ah' : 'Kohhran atang'}
+                          </label>
                           <input
                             type="text"
-                            value={recordKohhranAtang}
-                            onChange={e => setRecordKohhranAtang(e.target.value)}
+                            value={isOutward ? (recordKohhranAh || recordKohhranAtang) : recordKohhranAtang}
+                            onChange={e => {
+                              setRecordKohhranAtang(e.target.value);
+                              setRecordKohhranAh(e.target.value);
+                            }}
                             placeholder="e.g. Khatla Kohhran"
                             className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                           />
@@ -1962,7 +1974,7 @@ export default function Records() {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Chhungkaw Member Zat</label>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Member zat</label>
                         <input
                           type="text"
                           value={recordFamilyMembers}
