@@ -1,6 +1,8 @@
 import { useAuth } from '../lib/auth';
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
-import { Plus, X, Pencil, Trash2, Upload, ArrowLeft, Search, FolderPlus, Folder, FileText, Calendar, Tag, AlertCircle, Sliders, ListPlus, Settings, Check } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Plus, X, Pencil, Trash2, Upload, Download, ArrowLeft, Search, FolderPlus, Folder, FileText, Calendar, Tag, AlertCircle, Sliders, ListPlus, Settings, Check } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { 
@@ -785,6 +787,222 @@ export default function Records() {
     );
   });
 
+  // All records under current category
+  const categoryRecords = churchRecords.filter(r => {
+    if (!currentCategory) return false;
+    if (currentCategory.id === 'church_records') return true;
+    return r.categoryId === currentCategory.id;
+  });
+
+  // Download CSV for active subcategory or custom records list
+  const handleDownloadCSV = (recordsToExport?: ChurchRecord[], customTitle?: string) => {
+    const list = recordsToExport || filteredSubcategoryRecords;
+    if (list.length === 0) {
+      alert("No records available to export.");
+      return;
+    }
+
+    const subCode = currentSubcategory?.code;
+    const isOutward = ['testimonial_disbursement', 'pem'].includes(subCode || '');
+    const customFieldsDef = currentSubcategory?.fields || [];
+
+    let headers: string[] = [];
+    let rows: (string | number)[][] = [];
+
+    if (subCode === 'marriage') {
+      headers = ['Moneitu', 'Mo', 'Date', 'Hmun', 'Inneih tirtu'];
+      rows = list.map(r => [
+        r.groomName || r.pasalHming || '',
+        r.brideName || r.moHming || '',
+        r.date || '',
+        r.hmun || r.location || '',
+        r.officiant || ''
+      ]);
+    } else if (subCode === 'death') {
+      headers = ['Hming', 'Kum', 'Date', 'Thih Chhan', 'Vuitu', 'Tawngtaisaktu', 'Thlanmuala hun hmangtu', 'Upa Bial'];
+      rows = list.map(r => [
+        r.memberName || '',
+        r.age !== undefined && r.age !== null && r.age !== '' ? r.age : '',
+        r.date || '',
+        r.deathReason || '',
+        r.officiant || '',
+        r.tawngtaisaktu || '',
+        r.thlanmualaHunHmangtu || '',
+        r.upaBial || ''
+      ]);
+    } else if (subCode === 'baptism') {
+      headers = ['Hming', 'Date', 'Pian Ni', 'Upa Bial', 'Officiant'];
+      rows = list.map(r => [
+        r.memberName || '',
+        r.date || '',
+        r.birthDate || '',
+        r.upaBial || '',
+        r.officiant || ''
+      ]);
+    } else if (['pem', 'dawnsawn', 'testimonial_received', 'testimonial_disbursement'].includes(subCode || '')) {
+      headers = ['Hming', isOutward ? 'Kohhran ah' : 'Kohhran atang', 'Date', 'Member zat'];
+      rows = list.map(r => [
+        r.memberName || '',
+        r.kohhranAh || r.kohhranAtang || '',
+        r.date || '',
+        r.familyMembers || ''
+      ]);
+    } else {
+      headers = ['Hming', 'Category', 'Subcategory', 'Date', 'Officiant / Leader', 'Upa Bial', 'Details'];
+      rows = list.map(r => {
+        const cat = categories.find(c => c.id === r.categoryId)?.name || '';
+        const sub = subcategories.find(s => s.id === r.subcategoryId)?.name || '';
+        return [
+          r.memberName || r.groomName || 'Unnamed Record',
+          cat,
+          sub,
+          r.date || '',
+          r.officiant || '',
+          r.upaBial || '',
+          r.details || ''
+        ];
+      });
+    }
+
+    if (customFieldsDef.length > 0) {
+      const extraHeaders = customFieldsDef.map(f => f.name);
+      headers = [...headers, ...extraHeaders];
+      rows = rows.map((row, idx) => {
+        const record = list[idx];
+        const extraVals = customFieldsDef.map(f => record.customFields?.[f.id] || '');
+        return [...row, ...extraVals];
+      });
+    }
+
+    const title = customTitle || currentSubcategory?.name || currentCategory?.name || 'church_records';
+    const csvData = [headers, ...rows];
+    const csvContent = Papa.unparse(csvData);
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${title.toLowerCase().replace(/\s+/g, '_')}_records_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Download PDF for active subcategory or custom records list
+  const handleDownloadPDF = (recordsToExport?: ChurchRecord[], customTitle?: string) => {
+    const list = recordsToExport || filteredSubcategoryRecords;
+    if (list.length === 0) {
+      alert("No records available to export.");
+      return;
+    }
+
+    const subCode = currentSubcategory?.code;
+    const isOutward = ['testimonial_disbursement', 'pem'].includes(subCode || '');
+    const customFieldsDef = currentSubcategory?.fields || [];
+
+    let headers: string[] = [];
+    let rows: (string | number)[][] = [];
+
+    if (subCode === 'marriage') {
+      headers = ['Moneitu', 'Mo', 'Date', 'Hmun', 'Inneih tirtu'];
+      rows = list.map(r => [
+        r.groomName || r.pasalHming || '-',
+        r.brideName || r.moHming || '-',
+        r.date || '-',
+        r.hmun || r.location || '-',
+        r.officiant || '-'
+      ]);
+    } else if (subCode === 'death') {
+      headers = ['Hming', 'Kum', 'Date', 'Thih Chhan', 'Vuitu', 'Tawngtaisaktu', 'Thlanmuala hun hmangtu', 'Upa Bial'];
+      rows = list.map(r => [
+        r.memberName || '-',
+        r.age !== undefined && r.age !== null && r.age !== '' ? String(r.age) : '-',
+        r.date || '-',
+        r.deathReason || '-',
+        r.officiant || '-',
+        r.tawngtaisaktu || '-',
+        r.thlanmualaHunHmangtu || '-',
+        r.upaBial || '-'
+      ]);
+    } else if (subCode === 'baptism') {
+      headers = ['Hming', 'Date', 'Pian Ni', 'Upa Bial', 'Officiant'];
+      rows = list.map(r => [
+        r.memberName || '-',
+        r.date || '-',
+        r.birthDate || '-',
+        r.upaBial || '-',
+        r.officiant || '-'
+      ]);
+    } else if (['pem', 'dawnsawn', 'testimonial_received', 'testimonial_disbursement'].includes(subCode || '')) {
+      headers = ['Hming', isOutward ? 'Kohhran ah' : 'Kohhran atang', 'Date', 'Member zat'];
+      rows = list.map(r => [
+        r.memberName || '-',
+        r.kohhranAh || r.kohhranAtang || '-',
+        r.date || '-',
+        r.familyMembers || '-'
+      ]);
+    } else {
+      headers = ['Hming', 'Category', 'Subcategory', 'Date', 'Officiant / Leader', 'Upa Bial', 'Details'];
+      rows = list.map(r => {
+        const cat = categories.find(c => c.id === r.categoryId)?.name || '-';
+        const sub = subcategories.find(s => s.id === r.subcategoryId)?.name || '-';
+        return [
+          r.memberName || r.groomName || 'Unnamed Record',
+          cat,
+          sub,
+          r.date || '-',
+          r.officiant || '-',
+          r.upaBial || '-',
+          r.details || '-'
+        ];
+      });
+    }
+
+    if (customFieldsDef.length > 0) {
+      const extraHeaders = customFieldsDef.map(f => f.name);
+      headers = [...headers, ...extraHeaders];
+      rows = rows.map((row, idx) => {
+        const record = list[idx];
+        const extraVals = customFieldsDef.map(f => record.customFields?.[f.id] || '-');
+        return [...row, ...extraVals];
+      });
+    }
+
+    const title = customTitle || currentSubcategory?.name || currentCategory?.name || 'Church Records';
+    const doc = new jsPDF(headers.length > 5 ? 'landscape' : 'portrait', 'mm', 'a4');
+
+    doc.setFontSize(14);
+    doc.setTextColor(90, 90, 64);
+    doc.text(`Khatla Presbyterian Kohhran`, 14, 15);
+    doc.setFontSize(11);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Record List: ${title}`, 14, 22);
+    doc.setFontSize(8);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 27);
+
+    autoTable(doc, {
+      head: [headers],
+      body: rows.map(row => row.map(cell => String(cell))),
+      startY: 32,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [90, 90, 64],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 9
+      },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 3
+      },
+      alternateRowStyles: {
+        fillColor: [250, 248, 245]
+      }
+    });
+
+    doc.save(`${title.toLowerCase().replace(/\s+/g, '_')}_records_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   const renderInlineFieldForm = () => (
     <div className="p-4 bg-white border border-[#5A5A40]/30 rounded-2xl space-y-3 shadow-sm mt-3 font-sans">
       <div className="flex justify-between items-center pb-2 border-b border-[#ecece0]">
@@ -974,15 +1192,34 @@ export default function Records() {
               </p>
             </div>
 
-            {isAdmin && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => openSubcategoryModal()}
-                className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition flex items-center gap-1.5"
+                onClick={() => handleDownloadCSV(categoryRecords, currentCategory?.name || 'All_Category')}
+                className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition flex items-center gap-1.5"
+                title="Download All CSV for this Category"
               >
-                <Plus className="w-3.5 h-3.5" />
-                Add Subcategory
+                <Download className="w-3.5 h-3.5 text-emerald-700" />
+                Download CSV
               </button>
-            )}
+              <button
+                onClick={() => handleDownloadPDF(categoryRecords, currentCategory?.name || 'All_Category')}
+                className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition flex items-center gap-1.5"
+                title="Download All PDF for this Category"
+              >
+                <FileText className="w-3.5 h-3.5 text-rose-700" />
+                Download PDF
+              </button>
+
+              {isAdmin && (
+                <button
+                  onClick={() => openSubcategoryModal()}
+                  className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Subcategory
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1115,6 +1352,25 @@ export default function Records() {
                   </button>
                 )}
               </div>
+
+              {/* Export Buttons */}
+              <button
+                onClick={() => handleDownloadCSV()}
+                className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition flex items-center gap-1.5 shadow-xs"
+                title="Download CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-700" />
+                Download CSV
+              </button>
+
+              <button
+                onClick={() => handleDownloadPDF()}
+                className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition flex items-center gap-1.5 shadow-xs"
+                title="Download PDF"
+              >
+                <FileText className="w-3.5 h-3.5 text-rose-700" />
+                Download PDF
+              </button>
 
               {isAdmin && (
                 <>

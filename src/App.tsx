@@ -22,8 +22,8 @@ import About from './pages/About';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -41,7 +41,7 @@ export default function App() {
             <Route path="/about" element={<About />} />
           </Routes>
         </Layout>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
