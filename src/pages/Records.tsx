@@ -1140,230 +1140,266 @@ export default function Records() {
             </div>
           </div>
 
-          {/* Records Table / Cards */}
+          {/* Records Table */}
           <div className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden">
             {loading ? (
               <div className="p-12 text-center text-sm text-stone-500 italic">Loading records...</div>
-            ) : currentSubcategory?.code === 'marriage' ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-                      <th className="p-4 pl-6">Moneitu</th>
-                      <th className="p-4">Mo</th>
-                      <th className="p-4">Date</th>
-                      <th className="p-4">Hmun</th>
-                      <th className="p-4">Inneih tirtu</th>
-                      {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
-                    {filteredSubcategoryRecords.map((record) => (
-                      <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
-                        <td className="p-4 pl-6 font-semibold text-[#5A5A40]">
-                          {record.groomName || record.pasalHming || '-'}
-                        </td>
-                        <td className="p-4 font-semibold text-[#5A5A40]">
-                          {record.brideName || record.moHming || '-'}
-                        </td>
-                        <td className="p-4 text-stone-600">
-                          {record.date || '-'}
-                        </td>
-                        <td className="p-4 text-stone-600">
-                          {record.hmun || record.location || '-'}
-                        </td>
-                        <td className="p-4 text-stone-600">
-                          {record.officiant || '-'}
-                        </td>
-                        {isAdmin && (
-                          <td className="p-4 pr-6 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button 
-                                onClick={() => openRecordModal(record)} 
-                                className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                                title="Edit Record Entry"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteRecord(record.id)} 
-                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                                title="Delete Record Entry"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredSubcategoryRecords.length === 0 && (
-                  <div className="p-12 text-center text-sm text-stone-500 italic">
-                    {searchQuery ? `No records matching "${searchQuery}"` : `No records logged under "${currentSubcategory?.name}" yet.`}
-                  </div>
-                )}
-              </div>
             ) : (
-              <div className="divide-y divide-[#ecece0]">
-                {filteredSubcategoryRecords.map((record) => (
-                  <div key={record.id} className="p-6 hover:bg-[#f5f5f0]/50 transition group">
-                    <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                      <div className="flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
-                          <h3 className="text-xl font-serif italic text-[#5A5A40]">
-                            {(() => {
-                              const groom = record.groomName || record.pasalHming;
-                              const bride = record.brideName || record.moHming;
-                              if (groom && bride) return `${groom} & ${bride}`;
-                              if (groom) return `Moneitu: ${groom}`;
-                              if (bride) return `Mo: ${bride}`;
-                              return record.memberName || 'Unnamed Record';
-                            })()}
-                          </h3>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wider font-bold bg-[#fcfaf7] border border-[#ecece0] text-stone-500 w-fit">
-                            {currentSubcategory?.name}
-                          </span>
-                        </div>
+              <div className="overflow-x-auto">
+                {(() => {
+                  const subCode = currentSubcategory?.code;
 
-                        <div className="flex flex-wrap gap-x-5 gap-y-1 mb-2">
-                          {record.groomName && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Moneitu: <span className="text-[#5A5A40]">{record.groomName}</span>
-                            </p>
-                          )}
-                          {record.brideName && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Mo: <span className="text-[#5A5A40]">{record.brideName}</span>
-                            </p>
-                          )}
-                          {record.date && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Date: <span className="text-[#5A5A40]">{record.date}</span>
-                            </p>
-                          )}
-                          {record.hmun && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Hmun: <span className="text-[#5A5A40]">{record.hmun}</span>
-                            </p>
-                          )}
-                          {record.birthDate && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Pian Ni: <span className="text-[#5A5A40]">{record.birthDate}</span>
-                            </p>
-                          )}
-                          {record.deathReason && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Thih Chhan: <span className="text-[#5A5A40]">{record.deathReason}</span>
-                            </p>
-                          )}
-                          {record.age && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Kum: <span className="text-[#5A5A40]">{record.age}</span>
-                            </p>
-                          )}
-                          {record.officiant && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Vuitu: <span className="text-[#5A5A40]">{record.officiant}</span>
-                            </p>
-                          )}
-                          {record.tawngtaisaktu && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Tawngtaisaktu: <span className="text-[#5A5A40]">{record.tawngtaisaktu}</span>
-                            </p>
-                          )}
-                          {record.thlanmualaHunHmangtu && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Thlanmuala hun hmangtu: <span className="text-[#5A5A40]">{record.thlanmualaHunHmangtu}</span>
-                            </p>
-                          )}
-                          {record.familyMembers && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Chhungkaw Member Zat: <span className="text-[#5A5A40]">{record.familyMembers}</span>
-                            </p>
-                          )}
-                          {record.kohhranAtang && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Kohhran atang: <span className="text-[#5A5A40]">{record.kohhranAtang}</span>
-                            </p>
-                          )}
-                          {record.upaBial && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Upa Bial: <span className="text-[#5A5A40]">{record.upaBial}</span>
-                            </p>
-                          )}
-                          {record.month && (
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Thla: <span className="text-[#5A5A40]">{record.month}</span>
-                            </p>
-                          )}
-                        </div>
+                  // 1. Marriage (Inneih)
+                  if (subCode === 'marriage') {
+                    return (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
+                            <th className="p-4 pl-6">Moneitu</th>
+                            <th className="p-4">Mo</th>
+                            <th className="p-4">Date</th>
+                            <th className="p-4">Hmun</th>
+                            <th className="p-4">Inneih tirtu</th>
+                            {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
+                          {filteredSubcategoryRecords.map((record) => (
+                            <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
+                              <td className="p-4 pl-6 font-semibold text-[#5A5A40]">
+                                {record.groomName || record.pasalHming || '-'}
+                              </td>
+                              <td className="p-4 font-semibold text-[#5A5A40]">
+                                {record.brideName || record.moHming || '-'}
+                              </td>
+                              <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.hmun || record.location || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
+                              {isAdmin && (
+                                <td className="p-4 pr-6 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button 
+                                      onClick={() => openRecordModal(record)} 
+                                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                                      title="Edit Record Entry"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteRecord(record.id)} 
+                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                                      title="Delete Record Entry"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  }
 
-                        {/* Custom Field Values Display */}
-                        {(() => {
-                          const customVals = record.customFields || {};
-                          const keys = Object.keys(customVals);
-                          if (keys.length === 0) return null;
+                  // 2. Death (Mitthi)
+                  if (subCode === 'death') {
+                    return (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
+                            <th className="p-4 pl-6">Hming</th>
+                            <th className="p-4">Kum</th>
+                            <th className="p-4">Date</th>
+                            <th className="p-4">Thih Chhan</th>
+                            <th className="p-4">Vuitu</th>
+                            <th className="p-4">Tawngtaisaktu</th>
+                            <th className="p-4">Thlanmuala hun hmangtu</th>
+                            <th className="p-4">Upa Bial</th>
+                            {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
+                          {filteredSubcategoryRecords.map((record) => (
+                            <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
+                              <td className="p-4 pl-6 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.age !== undefined && record.age !== null && record.age !== '' ? record.age : '-'}</td>
+                              <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.deathReason || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.tawngtaisaktu || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.thlanmualaHunHmangtu || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.upaBial || '-'}</td>
+                              {isAdmin && (
+                                <td className="p-4 pr-6 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button 
+                                      onClick={() => openRecordModal(record)} 
+                                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                                      title="Edit Record Entry"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteRecord(record.id)} 
+                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                                      title="Delete Record Entry"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  }
 
-                          const catF = currentCategory?.fields || [];
-                          const subF = currentSubcategory?.fields || [];
-                          const allF = [...catF, ...subF];
+                  // 3. Baptism
+                  if (subCode === 'baptism') {
+                    return (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
+                            <th className="p-4 pl-6">Hming</th>
+                            <th className="p-4">Date</th>
+                            <th className="p-4">Pian Ni</th>
+                            <th className="p-4">Upa Bial</th>
+                            <th className="p-4">Officiant</th>
+                            {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
+                          {filteredSubcategoryRecords.map((record) => (
+                            <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
+                              <td className="p-4 pl-6 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.birthDate || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.upaBial || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
+                              {isAdmin && (
+                                <td className="p-4 pr-6 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button 
+                                      onClick={() => openRecordModal(record)} 
+                                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                                      title="Edit Record Entry"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteRecord(record.id)} 
+                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                                      title="Delete Record Entry"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  }
 
-                          return (
-                            <div className="flex flex-wrap gap-x-5 gap-y-1 my-2 pt-2 border-t border-[#f5f5f0]">
-                              {keys.map(k => {
-                                const val = customVals[k];
-                                if (val === undefined || val === null || val === '') return null;
-                                const fieldDef = allF.find(f => f.id === k || f.name === k);
-                                const label = fieldDef ? fieldDef.name : k;
-                                return (
-                                  <p key={k} className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                                    {label}: <span className="text-[#5A5A40]">{String(val)}</span>
-                                  </p>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
+                  // 4. Testimonial / Pem / Dawnsawn
+                  if (['pem', 'dawnsawn', 'testimonial_received', 'testimonial_disbursement'].includes(subCode || '')) {
+                    return (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
+                            <th className="p-4 pl-6">Hming</th>
+                            <th className="p-4">Kohhran atang</th>
+                            <th className="p-4">Date</th>
+                            <th className="p-4">Chhungkaw Member Zat</th>
+                            {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
+                          {filteredSubcategoryRecords.map((record) => (
+                            <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
+                              <td className="p-4 pl-6 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.kohhranAtang || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.familyMembers || '-'}</td>
+                              {isAdmin && (
+                                <td className="p-4 pr-6 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button 
+                                      onClick={() => openRecordModal(record)} 
+                                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                                      title="Edit Record Entry"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteRecord(record.id)} 
+                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                                      title="Delete Record Entry"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    );
+                  }
 
-                        {record.details && (
-                          <p className="text-sm text-[#2d2d2a] font-sans mt-2">{record.details}</p>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col items-end gap-3 shrink-0">
-                        {record.officiant && (
-                          <div className="text-xs font-sans md:text-right p-2.5 bg-[#fcfaf7] rounded-xl border border-[#ecece0]">
-                            <span className="block text-[9px] uppercase tracking-widest text-stone-400 font-bold mb-0.5">
-                              {record.type === 'marriage' || currentSubcategory?.code === 'marriage' ? 'Inneih tirtu' : 'Officiant / Leader'}
-                            </span>
-                            <span className="font-semibold text-[#5A5A40]">{record.officiant}</span>
-                          </div>
-                        )}
-
-                        {isAdmin && (
-                          <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => openRecordModal(record)} 
-                              className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                              title="Edit Record Entry"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteRecord(record.id)} 
-                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                              title="Delete Record Entry"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  // 5. Default / General Table
+                  return (
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
+                          <th className="p-4 pl-6">Hming</th>
+                          <th className="p-4">Date</th>
+                          <th className="p-4">Officiant / Leader</th>
+                          <th className="p-4">Details</th>
+                          {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
+                        {filteredSubcategoryRecords.map((record) => (
+                          <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
+                            <td className="p-4 pl-6 font-semibold text-[#5A5A40]">
+                              {record.memberName || record.groomName || 'Unnamed Record'}
+                            </td>
+                            <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                            <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
+                            <td className="p-4 text-stone-600">{record.details || '-'}</td>
+                            {isAdmin && (
+                              <td className="p-4 pr-6 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button 
+                                    onClick={() => openRecordModal(record)} 
+                                    className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                                    title="Edit Record Entry"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteRecord(record.id)} 
+                                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                                    title="Delete Record Entry"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  );
+                })()}
 
                 {filteredSubcategoryRecords.length === 0 && (
                   <div className="p-12 text-center text-sm text-stone-500 italic">
@@ -1823,8 +1859,8 @@ export default function Records() {
                               className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                             >
                               <option value="">-- Choose Bial --</option>
-                              {upas.map(u => (
-                                <option key={u.id} value={u.bial}>{u.bial} ({u.name})</option>
+                              {Array.from(new Set(upas.map(u => u.bial))).filter(Boolean).map(bialVal => (
+                                <option key={bialVal} value={bialVal}>{bialVal}</option>
                               ))}
                             </select>
                           ) : (
