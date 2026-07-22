@@ -66,6 +66,11 @@ export interface ChurchRecord {
   familyMembers?: string;
   upaBial?: string;
   month?: string;
+  age?: string | number;
+  tawngtaisaktu?: string;
+  thlanmualaHunHmangtu?: string;
+  kohhranAtang?: string;
+  hmun?: string;
   customFields?: Record<string, any>;
   [key: string]: any;
 }

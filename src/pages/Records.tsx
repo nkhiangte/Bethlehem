@@ -74,6 +74,11 @@ export default function Records() {
   const [recordFamilyMembers, setRecordFamilyMembers] = useState('');
   const [recordUpaBial, setRecordUpaBial] = useState('');
   const [recordMonth, setRecordMonth] = useState('');
+  const [recordAge, setRecordAge] = useState('');
+  const [recordTawngtaisaktu, setRecordTawngtaisaktu] = useState('');
+  const [recordThlanmualaHunHmangtu, setRecordThlanmualaHunHmangtu] = useState('');
+  const [recordKohhranAtang, setRecordKohhranAtang] = useState('');
+  const [recordHmun, setRecordHmun] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -542,6 +547,11 @@ export default function Records() {
       setRecordFamilyMembers(record.familyMembers || '');
       setRecordUpaBial(record.upaBial || '');
       setRecordMonth(record.month || '');
+      setRecordAge(record.age !== undefined && record.age !== null ? String(record.age) : '');
+      setRecordTawngtaisaktu(record.tawngtaisaktu || '');
+      setRecordThlanmualaHunHmangtu(record.thlanmualaHunHmangtu || '');
+      setRecordKohhranAtang(record.kohhranAtang || '');
+      setRecordHmun(record.hmun || record.location || '');
       setRecordCustomValues(record.customFields || {});
     } else {
       setEditingRecord(null);
@@ -558,6 +568,11 @@ export default function Records() {
       setRecordFamilyMembers('');
       setRecordUpaBial(upas[0]?.bial || '');
       setRecordMonth(new Date().toISOString().slice(0, 7));
+      setRecordAge('');
+      setRecordTawngtaisaktu('');
+      setRecordThlanmualaHunHmangtu('');
+      setRecordKohhranAtang('');
+      setRecordHmun('');
       setRecordCustomValues({});
     }
     setIsRecordModalOpen(true);
@@ -582,18 +597,23 @@ export default function Records() {
       officiant: recordOfficiant.trim(),
       upaBial: recordUpaBial,
       month: recordMonth,
+      age: recordAge,
       customFields: recordCustomValues,
     };
 
     if (subTypeCode === 'baptism') {
       data.birthDate = recordBirthDate;
     } else if (subTypeCode === 'marriage') {
-      data.groomName = recordGroomName;
-      data.brideName = recordBrideName;
+      data.groomName = recordGroomName.trim();
+      data.brideName = recordBrideName.trim();
+      data.hmun = recordHmun.trim();
     } else if (subTypeCode === 'death') {
       data.deathReason = recordDeathReason;
+      data.tawngtaisaktu = recordTawngtaisaktu.trim();
+      data.thlanmualaHunHmangtu = recordThlanmualaHunHmangtu.trim();
     } else if (['pem', 'dawnsawn', 'testimonial_received', 'testimonial_disbursement'].includes(subTypeCode)) {
       data.familyMembers = recordFamilyMembers;
+      data.kohhranAtang = recordKohhranAtang.trim();
     }
 
     if (!isFirebaseConfigured || !db) {
@@ -750,7 +770,13 @@ export default function Records() {
       (record.details && record.details.toLowerCase().includes(q)) ||
       (record.officiant && record.officiant.toLowerCase().includes(q)) ||
       (record.date && record.date.includes(q)) ||
-      (record.upaBial && record.upaBial.toLowerCase().includes(q))
+      (record.deathReason && record.deathReason.toLowerCase().includes(q)) ||
+      (record.tawngtaisaktu && record.tawngtaisaktu.toLowerCase().includes(q)) ||
+      (record.thlanmualaHunHmangtu && record.thlanmualaHunHmangtu.toLowerCase().includes(q)) ||
+      (record.kohhranAtang && record.kohhranAtang.toLowerCase().includes(q)) ||
+      (record.hmun && record.hmun.toLowerCase().includes(q)) ||
+      (record.upaBial && record.upaBial.toLowerCase().includes(q)) ||
+      (record.age && String(record.age).toLowerCase().includes(q))
     );
   });
 
@@ -1118,6 +1144,67 @@ export default function Records() {
           <div className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden">
             {loading ? (
               <div className="p-12 text-center text-sm text-stone-500 italic">Loading records...</div>
+            ) : currentSubcategory?.code === 'marriage' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
+                      <th className="p-4 pl-6">Moneitu</th>
+                      <th className="p-4">Mo</th>
+                      <th className="p-4">Date</th>
+                      <th className="p-4">Hmun</th>
+                      <th className="p-4">Inneih tirtu</th>
+                      {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
+                    {filteredSubcategoryRecords.map((record) => (
+                      <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
+                        <td className="p-4 pl-6 font-semibold text-[#5A5A40]">
+                          {record.groomName || record.pasalHming || '-'}
+                        </td>
+                        <td className="p-4 font-semibold text-[#5A5A40]">
+                          {record.brideName || record.moHming || '-'}
+                        </td>
+                        <td className="p-4 text-stone-600">
+                          {record.date || '-'}
+                        </td>
+                        <td className="p-4 text-stone-600">
+                          {record.hmun || record.location || '-'}
+                        </td>
+                        <td className="p-4 text-stone-600">
+                          {record.officiant || '-'}
+                        </td>
+                        {isAdmin && (
+                          <td className="p-4 pr-6 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button 
+                                onClick={() => openRecordModal(record)} 
+                                className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                                title="Edit Record Entry"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteRecord(record.id)} 
+                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                                title="Delete Record Entry"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredSubcategoryRecords.length === 0 && (
+                  <div className="p-12 text-center text-sm text-stone-500 italic">
+                    {searchQuery ? `No records matching "${searchQuery}"` : `No records logged under "${currentSubcategory?.name}" yet.`}
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="divide-y divide-[#ecece0]">
                 {filteredSubcategoryRecords.map((record) => (
@@ -1130,8 +1217,8 @@ export default function Records() {
                               const groom = record.groomName || record.pasalHming;
                               const bride = record.brideName || record.moHming;
                               if (groom && bride) return `${groom} & ${bride}`;
-                              if (groom) return `Mopa: ${groom}`;
-                              if (bride) return `Monu: ${bride}`;
+                              if (groom) return `Moneitu: ${groom}`;
+                              if (bride) return `Mo: ${bride}`;
                               return record.memberName || 'Unnamed Record';
                             })()}
                           </h3>
@@ -1143,17 +1230,22 @@ export default function Records() {
                         <div className="flex flex-wrap gap-x-5 gap-y-1 mb-2">
                           {record.groomName && (
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Mopa: <span className="text-[#5A5A40]">{record.groomName}</span>
+                              Moneitu: <span className="text-[#5A5A40]">{record.groomName}</span>
                             </p>
                           )}
                           {record.brideName && (
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                              Monu: <span className="text-[#5A5A40]">{record.brideName}</span>
+                              Mo: <span className="text-[#5A5A40]">{record.brideName}</span>
                             </p>
                           )}
                           {record.date && (
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
                               Date: <span className="text-[#5A5A40]">{record.date}</span>
+                            </p>
+                          )}
+                          {record.hmun && (
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                              Hmun: <span className="text-[#5A5A40]">{record.hmun}</span>
                             </p>
                           )}
                           {record.birthDate && (
@@ -1166,9 +1258,34 @@ export default function Records() {
                               Thih Chhan: <span className="text-[#5A5A40]">{record.deathReason}</span>
                             </p>
                           )}
+                          {record.age && (
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                              Kum: <span className="text-[#5A5A40]">{record.age}</span>
+                            </p>
+                          )}
+                          {record.officiant && (
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                              Vuitu: <span className="text-[#5A5A40]">{record.officiant}</span>
+                            </p>
+                          )}
+                          {record.tawngtaisaktu && (
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                              Tawngtaisaktu: <span className="text-[#5A5A40]">{record.tawngtaisaktu}</span>
+                            </p>
+                          )}
+                          {record.thlanmualaHunHmangtu && (
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                              Thlanmuala hun hmangtu: <span className="text-[#5A5A40]">{record.thlanmualaHunHmangtu}</span>
+                            </p>
+                          )}
                           {record.familyMembers && (
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
                               Chhungkaw Member Zat: <span className="text-[#5A5A40]">{record.familyMembers}</span>
+                            </p>
+                          )}
+                          {record.kohhranAtang && (
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                              Kohhran atang: <span className="text-[#5A5A40]">{record.kohhranAtang}</span>
                             </p>
                           )}
                           {record.upaBial && (
@@ -1219,7 +1336,7 @@ export default function Records() {
                         {record.officiant && (
                           <div className="text-xs font-sans md:text-right p-2.5 bg-[#fcfaf7] rounded-xl border border-[#ecece0]">
                             <span className="block text-[9px] uppercase tracking-widest text-stone-400 font-bold mb-0.5">
-                              Officiant / Leader
+                              {record.type === 'marriage' || currentSubcategory?.code === 'marriage' ? 'Inneih tirtu' : 'Officiant / Leader'}
                             </span>
                             <span className="font-semibold text-[#5A5A40]">{record.officiant}</span>
                           </div>
@@ -1617,37 +1734,49 @@ export default function Records() {
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Moneitu (Groom)</label>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Moneitu</label>
                           <input
                             type="text"
                             value={recordGroomName}
                             onChange={e => setRecordGroomName(e.target.value)}
-                            placeholder="Groom's name"
+                            placeholder="Moneitu hming"
                             className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Mo (Bride)</label>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Mo</label>
                           <input
                             type="text"
                             value={recordBrideName}
                             onChange={e => setRecordBrideName(e.target.value)}
-                            placeholder="Bride's name"
+                            placeholder="Mo hming"
+                            className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Date</label>
+                          <input
+                            type="date"
+                            value={recordDate}
+                            onChange={e => setRecordDate(e.target.value)}
+                            className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Hmun</label>
+                          <input
+                            type="text"
+                            value={recordHmun}
+                            onChange={e => setRecordHmun(e.target.value)}
+                            placeholder="e.g. Khatla Kohhran Biak In"
                             className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Inneih Ni (Date)</label>
-                        <input
-                          type="date"
-                          value={recordDate}
-                          onChange={e => setRecordDate(e.target.value)}
-                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Inneih tirtu (Officiant)</label>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Inneih tirtu</label>
                         <input
                           type="text"
                           value={recordOfficiant}
@@ -1669,8 +1798,45 @@ export default function Records() {
                           type="text"
                           value={recordMemberName}
                           onChange={e => setRecordMemberName(e.target.value)}
+                          placeholder="e.g. Lalropuia"
                           className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          required
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Kum (Age)</label>
+                          <input
+                            type="text"
+                            value={recordAge}
+                            onChange={e => setRecordAge(e.target.value)}
+                            placeholder="e.g. 68"
+                            className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Bial (Upa Bial)</label>
+                          {upas.length > 0 ? (
+                            <select
+                              value={recordUpaBial}
+                              onChange={e => setRecordUpaBial(e.target.value)}
+                              className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                            >
+                              <option value="">-- Choose Bial --</option>
+                              {upas.map(u => (
+                                <option key={u.id} value={u.bial}>{u.bial} ({u.name})</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={recordUpaBial}
+                              onChange={e => setRecordUpaBial(e.target.value)}
+                              placeholder="e.g. Bial 1"
+                              className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                            />
+                          )}
+                        </div>
                       </div>
                       <div>
                         <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Thih Ni (Date)</label>
@@ -1691,11 +1857,81 @@ export default function Records() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Vuitu (Officiant)</label>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Vuitu</label>
                         <input
                           type="text"
                           value={recordOfficiant}
                           onChange={e => setRecordOfficiant(e.target.value)}
+                          placeholder="e.g. Rev. Lalthangliana"
+                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Tawngtaisaktu</label>
+                        <input
+                          type="text"
+                          value={recordTawngtaisaktu}
+                          onChange={e => setRecordTawngtaisaktu(e.target.value)}
+                          placeholder="e.g. Upa Zokhuma"
+                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Thlanmuala hun hmangtu</label>
+                        <input
+                          type="text"
+                          value={recordThlanmualaHunHmangtu}
+                          onChange={e => setRecordThlanmualaHunHmangtu(e.target.value)}
+                          placeholder="e.g. T.Upa Lalrinliana"
+                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                        />
+                      </div>
+                    </>
+                  );
+                }
+
+                if (['testimonial_received', 'dawnsawn', 'pem'].includes(subCode)) {
+                  return (
+                    <>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Hming (Name)</label>
+                        <input
+                          type="text"
+                          value={recordMemberName}
+                          onChange={e => setRecordMemberName(e.target.value)}
+                          placeholder="e.g. Lalropuia"
+                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Kohhran atang</label>
+                          <input
+                            type="text"
+                            value={recordKohhranAtang}
+                            onChange={e => setRecordKohhranAtang(e.target.value)}
+                            placeholder="e.g. Khatla Kohhran"
+                            className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Date</label>
+                          <input
+                            type="date"
+                            value={recordDate}
+                            onChange={e => setRecordDate(e.target.value)}
+                            className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Chhungkaw Member Zat</label>
+                        <input
+                          type="text"
+                          value={recordFamilyMembers}
+                          onChange={e => setRecordFamilyMembers(e.target.value)}
+                          placeholder="e.g. 4"
                           className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                         />
                       </div>
