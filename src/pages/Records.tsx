@@ -727,11 +727,17 @@ export default function Records() {
   const filteredSubcategoryRecords = churchRecords.filter(record => {
     if (!currentSubcategory) return false;
     
-    // Match by subcategoryId or code/type
-    const isSubMatch = record.subcategoryId === currentSubcategory.id || 
-                       record.type === currentSubcategory.code || 
-                       record.type === currentSubcategory.id ||
-                       (currentSubcategory.code === 'damlokan' && (record.subcategoryId === 'damlokan_general' || record.type === 'damlokan_general' || record.categoryId === 'damlo_kan'));
+    const isMarriageRecord = !!(record.groomName || record.brideName || record.pasalHming || record.moHming);
+
+    let isSubMatch = record.subcategoryId === currentSubcategory.id || 
+                     record.type === currentSubcategory.code || 
+                     record.type === currentSubcategory.id;
+
+    if (currentSubcategory.code === 'marriage') {
+      isSubMatch = isMarriageRecord || record.subcategoryId === 'marriage' || record.type === 'marriage' || record.type === 'inneih';
+    } else if (currentSubcategory.code === 'damlokan') {
+      isSubMatch = !isMarriageRecord && (record.subcategoryId === 'damlokan' || record.subcategoryId === 'damlokan_general' || record.type === 'damlokan_general' || record.categoryId === 'damlo_kan');
+    }
 
     if (!isSubMatch) return false;
 
@@ -739,6 +745,8 @@ export default function Records() {
     const q = searchQuery.toLowerCase();
     return (
       (record.memberName && record.memberName.toLowerCase().includes(q)) ||
+      (record.groomName && record.groomName.toLowerCase().includes(q)) ||
+      (record.brideName && record.brideName.toLowerCase().includes(q)) ||
       (record.details && record.details.toLowerCase().includes(q)) ||
       (record.officiant && record.officiant.toLowerCase().includes(q)) ||
       (record.date && record.date.includes(q)) ||
@@ -949,9 +957,16 @@ export default function Records() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {categorySubcategories.map(sub => {
               // Count records in this subcategory
-              const recCount = churchRecords.filter(r => 
-                r.subcategoryId === sub.id || r.type === sub.code || r.type === sub.id
-              ).length + (sub.code === 'damlokan_general' ? damloKanRecords.length : 0);
+              const recCount = churchRecords.filter(r => {
+                const isMarriage = !!(r.groomName || r.brideName || r.pasalHming || r.moHming);
+                if (sub.code === 'marriage') {
+                  return isMarriage || r.subcategoryId === 'marriage' || r.type === 'marriage' || r.type === 'inneih';
+                }
+                if (sub.code === 'damlokan') {
+                  return !isMarriage && (r.subcategoryId === 'damlokan' || r.subcategoryId === 'damlokan_general' || r.type === 'damlokan_general' || r.categoryId === 'damlo_kan');
+                }
+                return r.subcategoryId === sub.id || r.type === sub.code || r.type === sub.id;
+              }).length;
 
               return (
                 <div
@@ -1111,9 +1126,14 @@ export default function Records() {
                       <div className="flex-1">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
                           <h3 className="text-xl font-serif italic text-[#5A5A40]">
-                            {record.groomName && record.brideName 
-                              ? `${record.groomName} & ${record.brideName}` 
-                              : record.memberName || 'Unnamed Record'}
+                            {(() => {
+                              const groom = record.groomName || record.pasalHming;
+                              const bride = record.brideName || record.moHming;
+                              if (groom && bride) return `${groom} & ${bride}`;
+                              if (groom) return `Mopa: ${groom}`;
+                              if (bride) return `Monu: ${bride}`;
+                              return record.memberName || 'Unnamed Record';
+                            })()}
                           </h3>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wider font-bold bg-[#fcfaf7] border border-[#ecece0] text-stone-500 w-fit">
                             {currentSubcategory?.name}
@@ -1121,6 +1141,16 @@ export default function Records() {
                         </div>
 
                         <div className="flex flex-wrap gap-x-5 gap-y-1 mb-2">
+                          {record.groomName && (
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                              Mopa: <span className="text-[#5A5A40]">{record.groomName}</span>
+                            </p>
+                          )}
+                          {record.brideName && (
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                              Monu: <span className="text-[#5A5A40]">{record.brideName}</span>
+                            </p>
+                          )}
                           {record.date && (
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
                               Date: <span className="text-[#5A5A40]">{record.date}</span>
