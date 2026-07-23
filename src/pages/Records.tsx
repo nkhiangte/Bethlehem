@@ -2,7 +2,7 @@ import { useAuth } from '../lib/auth';
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Plus, X, Pencil, Trash2, Upload, Download, ArrowLeft, Search, FolderPlus, Folder, FileText, Calendar, Tag, AlertCircle, Sliders, ListPlus, Settings, Check } from 'lucide-react';
+import { Plus, X, Pencil, Trash2, Upload, Download, ArrowLeft, Search, FolderPlus, Folder, FileText, Calendar, Tag, AlertCircle, Sliders, ListPlus, Settings, Check, LayoutList, LayoutGrid } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, setDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { 
@@ -32,6 +32,7 @@ export default function Records() {
   const [activeCategoryId, setActiveCategoryId] = useState<string>('church_records');
   const [activeSubcategoryId, setActiveSubcategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [subcatViewMode, setSubcatViewMode] = useState<'table' | 'grid'>('table');
 
   // Category Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -1179,10 +1180,10 @@ export default function Records() {
         })}
       </div>
 
-      {/* VIEW LEVEL 1: Subcategories Grid for the Selected Category */}
+      {/* VIEW LEVEL 1: Subcategories Table/Grid for the Selected Category */}
       {!activeSubcategoryId ? (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <div>
               <h2 className="text-xl font-serif italic text-[#5A5A40]">
                 {currentCategory?.name} Subcategories
@@ -1192,7 +1193,35 @@ export default function Records() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* View Mode Switcher */}
+              <div className="flex items-center bg-[#f0f0e8] p-1 rounded-xl border border-[#e0e0d5]">
+                <button
+                  onClick={() => setSubcatViewMode('table')}
+                  className={`p-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                    subcatViewMode === 'table'
+                      ? 'bg-white text-[#5A5A40] shadow-xs'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                  title="Table View"
+                >
+                  <LayoutList className="w-4 h-4" />
+                  <span className="text-[10px] uppercase tracking-wider hidden md:inline">Table</span>
+                </button>
+                <button
+                  onClick={() => setSubcatViewMode('grid')}
+                  className={`p-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                    subcatViewMode === 'grid'
+                      ? 'bg-white text-[#5A5A40] shadow-xs'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                  title="Grid View"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  <span className="text-[10px] uppercase tracking-wider hidden md:inline">Grid</span>
+                </button>
+              </div>
+
               <button
                 onClick={() => handleDownloadCSV(categoryRecords, currentCategory?.name || 'All_Category')}
                 className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition flex items-center gap-1.5"
@@ -1222,91 +1251,214 @@ export default function Records() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {categorySubcategories.map(sub => {
-              // Count records in this subcategory
-              const recCount = churchRecords.filter(r => {
-                const isMarriage = !!(r.groomName || r.brideName || r.pasalHming || r.moHming);
-                if (sub.code === 'marriage') {
-                  return isMarriage || r.subcategoryId === 'marriage' || r.type === 'marriage' || r.type === 'inneih';
-                }
-                if (sub.code === 'damlokan') {
-                  return !isMarriage && (r.subcategoryId === 'damlokan' || r.subcategoryId === 'damlokan_general' || r.type === 'damlokan_general' || r.categoryId === 'damlo_kan');
-                }
-                return r.subcategoryId === sub.id || r.type === sub.code || r.type === sub.id;
-              }).length;
+          {subcatViewMode === 'table' ? (
+            <div className="bg-white rounded-[24px] shadow-sm border border-[#e0e0d5] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
+                      <th className="p-4 pl-6 w-12">#</th>
+                      <th className="p-4">Subcategory Name</th>
+                      <th className="p-4">Format / Fields</th>
+                      <th className="p-4">Total Entries</th>
+                      <th className="p-4 pr-6 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
+                    {categorySubcategories.map((sub, idx) => {
+                      const recCount = churchRecords.filter(r => {
+                        const isMarriage = !!(r.groomName || r.brideName || r.pasalHming || r.moHming);
+                        if (sub.code === 'marriage') {
+                          return isMarriage || r.subcategoryId === 'marriage' || r.type === 'marriage' || r.type === 'inneih';
+                        }
+                        if (sub.code === 'damlokan') {
+                          return !isMarriage && (r.subcategoryId === 'damlokan' || r.subcategoryId === 'damlokan_general' || r.type === 'damlokan_general' || r.categoryId === 'damlo_kan');
+                        }
+                        return r.subcategoryId === sub.id || r.type === sub.code || r.type === sub.id;
+                      }).length;
 
-              return (
-                <div
-                  key={sub.id}
-                  onClick={() => setActiveSubcategoryId(sub.id)}
-                  className="bg-white p-6 rounded-2xl border border-[#ecece0] shadow-sm hover:shadow-md hover:-translate-y-1 transition-all text-left group flex flex-col justify-between min-h-[130px] cursor-pointer relative"
-                >
-                  <div>
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-[#5A5A40] font-serif italic text-xl group-hover:text-[#4a4a35] transition-colors">
-                        {sub.name}
-                      </span>
-                      {isAdmin && (
-                        <div className="flex items-center gap-1 z-10" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => openSubcategoryModal(sub)}
-                            className="p-1 text-stone-400 hover:text-[#5A5A40]"
-                            title="Edit Subcategory & Fields"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          {!sub.isBuiltIn && (
-                            <button
-                              onClick={() => handleDeleteSubcategory(sub)}
-                              className="p-1 text-red-400 hover:text-red-600"
-                              title="Delete Subcategory"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                      return (
+                        <tr
+                          key={sub.id}
+                          onClick={() => setActiveSubcategoryId(sub.id)}
+                          className="hover:bg-[#fcfaf7] transition cursor-pointer group"
+                        >
+                          <td className="p-4 pl-6 text-xs text-stone-400 font-mono font-medium">
+                            {idx + 1}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2.5 rounded-xl bg-[#f5f5f0] text-[#5A5A40] group-hover:bg-[#5A5A40] group-hover:text-white transition-colors shrink-0">
+                                <Tag className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="font-serif italic text-lg text-[#5A5A40] group-hover:text-[#4a4a35] transition-colors block">
+                                  {sub.name}
+                                </span>
+                                {sub.description && (
+                                  <span className="text-xs text-stone-500 line-clamp-1">{sub.description}</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 text-xs text-stone-500">
+                            {sub.fields && sub.fields.length > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#f0f0e8] text-[#5A5A40] rounded-lg text-xs font-semibold">
+                                <Sliders className="w-3 h-3" />
+                                {sub.fields.length} {sub.fields.length === 1 ? 'custom field' : 'custom fields'}
+                              </span>
+                            ) : (
+                              <span className="text-stone-400 italic">Standard registry format</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-stone-100 text-stone-700 text-xs font-semibold rounded-full border border-stone-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#5A5A40]"></span>
+                              {recCount} {recCount === 1 ? 'Record' : 'Records'}
+                            </span>
+                          </td>
+                          <td className="p-4 pr-6 text-right" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-2">
+                              {isAdmin && (
+                                <div className="flex items-center gap-1 mr-1">
+                                  <button
+                                    onClick={() => openSubcategoryModal(sub)}
+                                    className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-stone-100 rounded-lg transition"
+                                    title="Edit Subcategory & Fields"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  {!sub.isBuiltIn && (
+                                    <button
+                                      onClick={() => handleDeleteSubcategory(sub)}
+                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                      title="Delete Subcategory"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              <button
+                                onClick={() => setActiveSubcategoryId(sub.id)}
+                                className="px-3.5 py-1.5 bg-[#5A5A40] text-white rounded-xl text-xs font-medium hover:bg-[#4a4a35] transition flex items-center gap-1.5 shadow-2xs group-hover:translate-x-0.5"
+                              >
+                                View Entries &rarr;
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {categorySubcategories.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="p-12 text-center text-sm text-stone-500 italic">
+                          No subcategories created for this category yet.
+                          {isAdmin && (
+                            <div className="mt-3">
+                              <button
+                                onClick={() => openSubcategoryModal()}
+                                className="text-[#5A5A40] underline font-semibold text-xs uppercase tracking-wider"
+                              >
+                                + Create First Subcategory
+                              </button>
+                            </div>
                           )}
-                        </div>
-                      )}
-                    </div>
-                    {sub.description && (
-                      <p className="text-xs text-stone-500 line-clamp-2 mt-1">{sub.description}</p>
+                        </td>
+                      </tr>
                     )}
-                  </div>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {categorySubcategories.map(sub => {
+                // Count records in this subcategory
+                const recCount = churchRecords.filter(r => {
+                  const isMarriage = !!(r.groomName || r.brideName || r.pasalHming || r.moHming);
+                  if (sub.code === 'marriage') {
+                    return isMarriage || r.subcategoryId === 'marriage' || r.type === 'marriage' || r.type === 'inneih';
+                  }
+                  if (sub.code === 'damlokan') {
+                    return !isMarriage && (r.subcategoryId === 'damlokan' || r.subcategoryId === 'damlokan_general' || r.type === 'damlokan_general' || r.categoryId === 'damlo_kan');
+                  }
+                  return r.subcategoryId === sub.id || r.type === sub.code || r.type === sub.id;
+                }).length;
 
-                  <div className="pt-4 border-t border-[#f5f5f0] flex justify-between items-center text-[10px] uppercase font-bold text-stone-400">
-                    <div className="flex items-center gap-2">
-                      <span>{recCount} {recCount === 1 ? 'Record' : 'Records'}</span>
-                      {sub.fields && sub.fields.length > 0 && (
-                        <span className="px-1.5 py-0.5 bg-[#f0f0e8] text-[#5A5A40] rounded text-[9px] flex items-center gap-1 font-semibold">
-                          <Sliders className="w-2.5 h-2.5" />
-                          {sub.fields.length} {sub.fields.length === 1 ? 'field' : 'fields'}
+                return (
+                  <div
+                    key={sub.id}
+                    onClick={() => setActiveSubcategoryId(sub.id)}
+                    className="bg-white p-6 rounded-2xl border border-[#ecece0] shadow-sm hover:shadow-md hover:-translate-y-1 transition-all text-left group flex flex-col justify-between min-h-[130px] cursor-pointer relative"
+                  >
+                    <div>
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="text-[#5A5A40] font-serif italic text-xl group-hover:text-[#4a4a35] transition-colors">
+                          {sub.name}
                         </span>
+                        {isAdmin && (
+                          <div className="flex items-center gap-1 z-10" onClick={e => e.stopPropagation()}>
+                            <button
+                              onClick={() => openSubcategoryModal(sub)}
+                              className="p-1 text-stone-400 hover:text-[#5A5A40]"
+                              title="Edit Subcategory & Fields"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            {!sub.isBuiltIn && (
+                              <button
+                                onClick={() => handleDeleteSubcategory(sub)}
+                                className="p-1 text-red-400 hover:text-red-600"
+                                title="Delete Subcategory"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {sub.description && (
+                        <p className="text-xs text-stone-500 line-clamp-2 mt-1">{sub.description}</p>
                       )}
                     </div>
-                    <span className="text-[#5A5A40] group-hover:translate-x-1 transition-transform">
-                      View Entries &rarr;
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
 
-            {categorySubcategories.length === 0 && (
-              <div className="col-span-full p-12 text-center text-sm text-stone-500 italic bg-white rounded-2xl border border-dashed border-[#d0d0c5]">
-                No subcategories created for this category yet.
-                {isAdmin && (
-                  <div className="mt-3">
-                    <button
-                      onClick={() => openSubcategoryModal()}
-                      className="text-[#5A5A40] underline font-semibold text-xs uppercase tracking-wider"
-                    >
-                      + Create First Subcategory
-                    </button>
+                    <div className="pt-4 border-t border-[#f5f5f0] flex justify-between items-center text-[10px] uppercase font-bold text-stone-400">
+                      <div className="flex items-center gap-2">
+                        <span>{recCount} {recCount === 1 ? 'Record' : 'Records'}</span>
+                        {sub.fields && sub.fields.length > 0 && (
+                          <span className="px-1.5 py-0.5 bg-[#f0f0e8] text-[#5A5A40] rounded text-[9px] flex items-center gap-1 font-semibold">
+                            <Sliders className="w-2.5 h-2.5" />
+                            {sub.fields.length} {sub.fields.length === 1 ? 'field' : 'fields'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[#5A5A40] group-hover:translate-x-1 transition-transform">
+                        View Entries &rarr;
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                );
+              })}
+
+              {categorySubcategories.length === 0 && (
+                <div className="col-span-full p-12 text-center text-sm text-stone-500 italic bg-white rounded-2xl border border-dashed border-[#d0d0c5]">
+                  No subcategories created for this category yet.
+                  {isAdmin && (
+                    <div className="mt-3">
+                      <button
+                        onClick={() => openSubcategoryModal()}
+                        className="text-[#5A5A40] underline font-semibold text-xs uppercase tracking-wider"
+                      >
+                        + Create First Subcategory
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         /* VIEW LEVEL 2: Entries List inside Selected Subcategory */
