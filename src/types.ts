@@ -153,6 +153,7 @@ export interface TawngtaiHruaituMonth {
 export interface CommitteeBearer {
   title: string;
   name: string;
+  phone?: string;
 }
 
 export interface Committee {

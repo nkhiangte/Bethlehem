@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Pencil, Trash2, Users } from 'lucide-react';
+import { Plus, X, Pencil, Trash2, Users, Phone, MessageCircle } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
 import { Committee, CommitteeBearer, DEFAULT_COMMITTEES, DEFAULT_COMMITTEE_BEARERS } from '../types';
+import { getPhoneCallUrl, getWhatsAppUrl } from '../components/PhoneLink';
 
 export default function CommitteePage() {
   const { isAdmin } = useAuth();
@@ -30,7 +31,7 @@ export default function CommitteePage() {
         const initialCommittees: Committee[] = DEFAULT_COMMITTEES.map((name, index) => ({
           id: `local_com_${Date.now()}_${index}`,
           name,
-          bearers: DEFAULT_COMMITTEE_BEARERS.map(title => ({ title, name: '' }))
+          bearers: DEFAULT_COMMITTEE_BEARERS.map(title => ({ title, name: '', phone: '' }))
         }));
         setCommittees(initialCommittees);
         localStorage.setItem('local_committees', JSON.stringify(initialCommittees));
@@ -47,12 +48,12 @@ export default function CommitteePage() {
         for (const name of DEFAULT_COMMITTEES) {
           const newDoc = await addDoc(collection(db, 'committees'), {
             name,
-            bearers: DEFAULT_COMMITTEE_BEARERS.map(title => ({ title, name: '' }))
+            bearers: DEFAULT_COMMITTEE_BEARERS.map(title => ({ title, name: '', phone: '' }))
           });
           initialCommittees.push({
             id: newDoc.id,
             name,
-            bearers: DEFAULT_COMMITTEE_BEARERS.map(title => ({ title, name: '' }))
+            bearers: DEFAULT_COMMITTEE_BEARERS.map(title => ({ title, name: '', phone: '' }))
           });
         }
         setCommittees(initialCommittees);
@@ -70,11 +71,15 @@ export default function CommitteePage() {
     if (committee) {
       setEditingCommittee(committee);
       setFormName(committee.name);
-      setFormBearers([...committee.bearers]);
+      setFormBearers(committee.bearers.map(b => ({
+        title: b.title || '',
+        name: b.name || '',
+        phone: b.phone || ''
+      })));
     } else {
       setEditingCommittee(null);
       setFormName('');
-      setFormBearers(DEFAULT_COMMITTEE_BEARERS.map(title => ({ title, name: '' })));
+      setFormBearers(DEFAULT_COMMITTEE_BEARERS.map(title => ({ title, name: '', phone: '' })));
     }
     setIsModalOpen(true);
   };
@@ -91,8 +96,14 @@ export default function CommitteePage() {
     setFormBearers(updated);
   };
 
+  const handleBearerPhoneChange = (index: number, phone: string) => {
+    const updated = [...formBearers];
+    updated[index].phone = phone;
+    setFormBearers(updated);
+  };
+
   const addBearer = () => {
-    setFormBearers([...formBearers, { title: '', name: '' }]);
+    setFormBearers([...formBearers, { title: '', name: '', phone: '' }]);
   };
 
   const removeBearer = (index: number) => {
@@ -107,7 +118,7 @@ export default function CommitteePage() {
 
     const data = {
       name: formName,
-      bearers: formBearers.filter(b => b.title.trim() !== '')
+      bearers: formBearers.filter(b => b.title.trim() !== '' || b.name.trim() !== '')
     };
 
     if (!isFirebaseConfigured || !db) {
@@ -180,42 +191,83 @@ export default function CommitteePage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {committees.map(committee => (
-            <div key={committee.id} className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden group">
-              <div className="p-6 border-b border-[#ecece0] flex justify-between items-center bg-[#fcfaf7]">
-                <h2 className="text-xl font-serif italic text-[#5A5A40] flex items-center gap-2">
-                  <Users className="w-5 h-5 text-stone-400" />
-                  {committee.name}
-                </h2>
-                {isAdmin && (
-                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => openModal(committee)} 
-                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                      title="Edit Committee"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(committee.id)} 
-                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                      title="Delete Committee"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="p-6 font-sans">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6">
-                  {committee.bearers.map((bearer, idx) => (
-                    <div key={idx} className="flex flex-col">
-                      <span className="text-[10px] uppercase font-bold text-stone-400 tracking-widest mb-1">{bearer.title}</span>
-                      <span className="text-sm font-semibold text-[#2d2d2a]">{bearer.name || '-'}</span>
+            <div key={committee.id} className="bg-white rounded-[32px] shadow-sm border border-[#e0e0d5] overflow-hidden group flex flex-col justify-between">
+              <div>
+                <div className="p-6 border-b border-[#ecece0] flex justify-between items-center bg-[#fcfaf7]">
+                  <h2 className="text-xl font-serif italic text-[#5A5A40] flex items-center gap-2">
+                    <Users className="w-5 h-5 text-stone-400" />
+                    {committee.name}
+                  </h2>
+                  {isAdmin && (
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => openModal(committee)} 
+                        className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
+                        title="Edit Committee"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(committee.id)} 
+                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
+                        title="Delete Committee"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  ))}
-                  {committee.bearers.length === 0 && (
-                    <div className="text-sm text-stone-500 italic col-span-2">No bearers assigned.</div>
                   )}
+                </div>
+                <div className="p-6 font-sans">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {committee.bearers.map((bearer, idx) => (
+                      <div key={idx} className="p-3.5 bg-[#fcfaf7] border border-[#ecece0] rounded-2xl flex flex-col justify-between space-y-2">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-stone-400 tracking-widest block mb-0.5">
+                            {bearer.title}
+                          </span>
+                          <span className="text-sm font-semibold text-[#2d2d2a] block">
+                            {bearer.name || '-'}
+                          </span>
+                        </div>
+
+                        {bearer.phone ? (
+                          <div className="pt-2 border-t border-[#ecece0] flex flex-col gap-1.5">
+                            <div className="flex items-center gap-1.5 text-xs text-stone-600">
+                              <Phone className="w-3 h-3 text-[#5A5A40] shrink-0" />
+                              <span className="font-mono font-medium">{bearer.phone}</span>
+                            </div>
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <a
+                                href={getPhoneCallUrl(bearer.phone)}
+                                className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2.5 bg-[#5A5A40] text-white rounded-xl hover:bg-[#4a4a35] transition font-medium text-[11px] shadow-2xs"
+                                title={`Call ${bearer.name || bearer.title}`}
+                              >
+                                <Phone className="w-3 h-3" />
+                                <span>Call</span>
+                              </a>
+                              <a
+                                href={getWhatsAppUrl(bearer.phone)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2.5 bg-[#25D366] text-white rounded-xl hover:bg-[#20bd5a] transition font-medium text-[11px] shadow-2xs"
+                                title={`WhatsApp ${bearer.name || bearer.title}`}
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                                <span>WhatsApp</span>
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="pt-1 text-[11px] text-stone-400 italic">
+                            No phone added
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {committee.bearers.length === 0 && (
+                      <div className="text-sm text-stone-500 italic col-span-2">No bearers assigned.</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -230,8 +282,8 @@ export default function CommitteePage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto py-10">
-          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-2xl shadow-xl border border-[#e0e0d5] overflow-hidden my-auto">
-            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white sticky top-0 z-10">
+          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-2xl shadow-xl border border-[#e0e0d5] overflow-hidden my-auto max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white sticky top-0 z-10 shrink-0">
               <h2 className="text-xl font-serif italic text-[#5A5A40]">
                 {editingCommittee ? 'Edit Committee' : 'Add Committee'}
               </h2>
@@ -240,7 +292,7 @@ export default function CommitteePage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-6 font-sans">
+            <div className="p-6 space-y-6 font-sans overflow-y-auto flex-1">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Committee Name</label>
                 <input 
@@ -254,42 +306,55 @@ export default function CommitteePage() {
 
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest">Office Bearers</label>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest">Office Bearers & Members</label>
                   <button 
                     onClick={addBearer}
-                    className="text-[10px] uppercase font-bold tracking-widest text-[#5A5A40] hover:text-[#4a4a35] flex items-center gap-1"
+                    className="text-[10px] uppercase font-bold tracking-widest text-[#5A5A40] hover:text-[#4a4a35] flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl border border-[#ecece0] shadow-2xs hover:bg-stone-50"
                   >
-                    <Plus className="w-3 h-3" /> Add Role
+                    <Plus className="w-3 h-3" /> Add Member / Role
                   </button>
                 </div>
                 
                 <div className="space-y-3">
                   {formBearers.map((bearer, index) => (
-                    <div key={index} className="flex gap-3 items-start">
-                      <div className="flex-1">
+                    <div key={index} className="p-3.5 bg-white border border-[#ecece0] rounded-2xl space-y-2.5 shadow-2xs">
+                      <div className="flex gap-2 items-center">
                         <input 
                           type="text" 
                           value={bearer.title} 
                           onChange={e => handleBearerTitleChange(index, e.target.value)}
-                          placeholder="Title (e.g. Chairman)"
-                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          placeholder="Role (e.g. Chairman, Member)"
+                          className="w-1/3 p-2.5 bg-[#fcfaf7] border border-[#ecece0] rounded-xl text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                         />
-                      </div>
-                      <div className="flex-1">
                         <input 
                           type="text" 
                           value={bearer.name} 
                           onChange={e => handleBearerChange(index, e.target.value)}
                           placeholder="Name (e.g. Upa Lalthlamuana)"
-                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                          className="flex-1 p-2.5 bg-[#fcfaf7] border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => removeBearer(index)}
+                          className="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition shrink-0"
+                          title="Remove Member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f0f0e8] rounded-xl text-stone-600 shrink-0 text-xs font-semibold">
+                          <Phone className="w-3.5 h-3.5 text-[#5A5A40]" />
+                          <span>Phone</span>
+                        </div>
+                        <input 
+                          type="text" 
+                          value={bearer.phone || ''} 
+                          onChange={e => handleBearerPhoneChange(index, e.target.value)}
+                          placeholder="Phone number / WhatsApp (e.g. 9862123456)"
+                          className="w-full p-2.5 bg-[#fcfaf7] border border-[#ecece0] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                         />
                       </div>
-                      <button 
-                        onClick={() => removeBearer(index)}
-                        className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 rounded-xl transition mt-px shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   ))}
                   {formBearers.length === 0 && (
@@ -299,16 +364,16 @@ export default function CommitteePage() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 sticky bottom-0 z-10">
+            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 sticky bottom-0 z-10 shrink-0">
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest text-stone-500 hover:bg-stone-50 font-sans border border-[#ecece0]"
+                className="px-6 py-2.5 rounded-xl text-xs uppercase font-bold tracking-widest text-stone-500 hover:bg-stone-50 font-sans border border-[#ecece0]"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSave}
-                className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest bg-[#5A5A40] text-white hover:bg-[#4a4a35] font-sans"
+                className="px-6 py-2.5 rounded-xl text-xs uppercase font-bold tracking-widest bg-[#5A5A40] text-white hover:bg-[#4a4a35] font-sans"
               >
                 Save Committee
               </button>
@@ -319,3 +384,4 @@ export default function CommitteePage() {
     </div>
   );
 }
+
