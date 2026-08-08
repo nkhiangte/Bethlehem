@@ -133,8 +133,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 pb-16 lg:pb-0">
-        <header className="h-16 bg-white border-b border-[#e0e0d5] flex items-center justify-between px-4 sm:px-8 shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 pb-16 lg:pb-0 relative bg-[#fcfaf7]">
+        {/* Background Banners */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden opacity-40 flex justify-center items-center">
+          {/* Desktop Banner (md and up) */}
+          <img 
+            src="https://i.ibb.co/MDJVdsK1/KOHHRAN.jpg" 
+            alt="" 
+            className="hidden md:block w-full h-full object-cover object-center"
+            referrerPolicy="no-referrer"
+          />
+          {/* Mobile Banner (below md) */}
+          <img 
+            src="https://i.ibb.co/r221mkgZ/BETHLEHEM.jpg" 
+            alt="" 
+            className="block md:hidden w-full h-full object-cover object-center"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+
+        <header className="relative z-10 h-16 bg-white/80 backdrop-blur-md border-b border-[#e0e0d5] flex items-center justify-between px-4 sm:px-8 shrink-0">
           <button 
             className="lg:hidden p-2 -ml-2 text-stone-500 hover:bg-stone-100 rounded-md flex items-center gap-2"
             onClick={() => setSidebarOpen(true)}
@@ -171,25 +189,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Church Header Banner */}
-        <div className="w-full bg-[#f5f5f0] border-b border-[#e0e0d5] overflow-hidden shadow-2xs">
-          {/* Desktop Banner (md and up) */}
-          <img 
-            src="https://i.ibb.co/MDJVdsK1/KOHHRAN.jpg" 
-            alt="Bethlehem Kohhran Banner" 
-            className="hidden md:block w-full h-28 sm:h-36 md:h-44 lg:h-52 object-cover object-center"
-            referrerPolicy="no-referrer"
-          />
-          {/* Mobile Banner (below md) */}
-          <img 
-            src="https://i.ibb.co/r221mkgZ/BETHLEHEM.jpg" 
-            alt="Bethlehem Kohhran Mobile Banner" 
-            className="block md:hidden w-full h-24 sm:h-32 object-cover object-center"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-
-        <main className="flex-1 overflow-auto p-4 sm:p-8">
+        <main className="relative z-10 flex-1 overflow-auto p-4 sm:p-8">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
