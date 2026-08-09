@@ -19,6 +19,7 @@ import FellowshipPage from './pages/Fellowship';
 import Users from './pages/Users';
 import Gallery from './pages/Gallery';
 import About from './pages/About';
+import PrivacyPolicy from './pages/Privacy';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/users" element={<Users />} />
             <Route path="/about" element={<About />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
           </Routes>
         </Layout>
       </AuthProvider>
