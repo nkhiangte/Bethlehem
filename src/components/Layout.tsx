@@ -198,6 +198,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link to="/privacy" className="hover:text-stone-700 underline underline-offset-2">Privacy Policy</Link>
               <span className="mx-2">•</span>
               <Link to="/delete-account" className="hover:text-stone-700 underline underline-offset-2">Delete Account</Link>
+              <span className="mx-2">•</span>
+              <Link to="/child-safety" className="hover:text-stone-700 underline underline-offset-2">Child Safety Standards</Link>
             </div>
             Powered by <a href="https://wa.me/9612447703" target="_blank" rel="noopener noreferrer" className="text-[#5A5A40] hover:underline font-bold">MegaBits</a>
           </footer>

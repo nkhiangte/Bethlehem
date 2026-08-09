@@ -21,6 +21,7 @@ import Gallery from './pages/Gallery';
 import About from './pages/About';
 import PrivacyPolicy from './pages/Privacy';
 import DeleteAccount from './pages/DeleteAccount';
+import ChildSafety from './pages/ChildSafety';
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="/about" element={<About />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
+            <Route path="/child-safety" element={<ChildSafety />} />
           </Routes>
         </Layout>
       </AuthProvider>
