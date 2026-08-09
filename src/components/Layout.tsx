@@ -189,10 +189,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="relative z-10 flex-1 overflow-auto p-4 sm:p-8">
-          <div className="max-w-7xl mx-auto">
+        <main className="relative z-10 flex-1 overflow-auto p-4 sm:p-8 flex flex-col">
+          <div className="max-w-7xl mx-auto w-full flex-1">
             {children}
           </div>
+          <footer className="mt-8 pt-4 border-t border-[#e0e0d5]/50 text-center text-xs text-stone-500 font-medium">
+            Powered by <a href="https://wa.me/9612447703" target="_blank" rel="noopener noreferrer" className="text-[#5A5A40] hover:underline font-bold">MegaBits</a>
+          </footer>
         </main>
       </div>
 
