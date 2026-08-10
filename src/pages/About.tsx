@@ -86,8 +86,10 @@ export default function About() {
         };
         setArticle(initialArticle);
       }
-    } catch (error) {
-      console.error("Error fetching about content:", error);
+    } catch (error: any) {
+      if (error?.code !== 'permission-denied') {
+        console.error("Error fetching about content:", error);
+      }
       // Fallback in case of network issue
       setArticle({
         title: DEFAULT_TITLE,
@@ -138,9 +140,11 @@ export default function About() {
       await setDoc(docRef, updatedData);
       setArticle(updatedData);
       setIsEditing(false);
-    } catch (error) {
-      console.error("Error saving about content:", error);
-      alert("Failed to save. Please try again.");
+    } catch (error: any) {
+      if (error?.code !== 'permission-denied') {
+        console.error("Error saving about content:", error);
+      }
+      alert("Failed to save. Please make sure your Firestore rules are deployed.");
     } finally {
       setSaving(false);
     }
