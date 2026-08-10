@@ -33,6 +33,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
+
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/bethlehem_keystore.jks
@@ -40,9 +45,7 @@ jobs:
       - name: Build Android Release AAB
         run: |
           cd android
-          gradle wrapper --gradle-version 8.14.3
-          chmod +x gradlew
-          ./gradlew bundleRelease -Pandroid.injected.signing.store.file=bethlehem_keystore.jks -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+          gradle bundleRelease -Pandroid.injected.signing.store.file=bethlehem_keystore.jks -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
 
       - name: Upload to Google Play
         uses: r0adkll/upload-google-play@v1
