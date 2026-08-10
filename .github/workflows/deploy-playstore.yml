@@ -54,5 +54,5 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
           packageName: com.bethlehemkohhran.app
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal # You can change this to 'production', 'alpha', or 'beta'
+          track: alpha # 'alpha' corresponds to Closed Testing in Google Play
           status: completed
