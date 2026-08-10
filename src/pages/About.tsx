@@ -257,7 +257,7 @@ export default function About() {
             </div>
           </header>
           <div 
-            className="prose prose-stone max-w-none font-sans text-[#2d2d2a] leading-relaxed text-sm prose-headings:font-serif prose-headings:font-normal prose-headings:text-[#5A5A40] prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3 prose-p:mb-5 prose-ul:list-disc prose-ul:pl-6 prose-li:mb-2 prose-strong:text-stone-800"
+            className="prose prose-stone max-w-none font-sans text-[#2d2d2a] text-sm prose-headings:font-serif prose-headings:font-normal prose-headings:text-[#5A5A40] prose-h3:text-lg prose-ul:list-disc prose-ul:pl-6 prose-strong:text-stone-800"
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
           />
         </article>

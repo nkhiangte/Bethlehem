@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
 import { NewsArticle } from '../types';
-import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload } from 'lucide-react';
+import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -19,10 +19,22 @@ export default function Home() {
   const [featuredImage, setFeaturedImage] = useState<string>('');
   const [uploadingFeatured, setUploadingFeatured] = useState(false);
   const [uploadingInline, setUploadingInline] = useState(false);
+
+  // Edit post state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editFeaturedImage, setEditFeaturedImage] = useState<string>('');
+  const [uploadingEditFeatured, setUploadingEditFeatured] = useState(false);
+  const [uploadingEditInline, setUploadingEditInline] = useState(false);
+
   const { isAdmin } = useAuth();
 
   const quillRef = useRef<any>(null);
   const inlineFileInputRef = useRef<HTMLInputElement>(null);
+
+  const editQuillRef = useRef<any>(null);
+  const editInlineFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchNews();
@@ -174,6 +186,90 @@ export default function Home() {
       setNews(news.filter(n => n.id !== id));
     } catch (error) {
       console.error("Error deleting news from Firestore:", error);
+    }
+  };
+
+  const handleStartEdit = (article: NewsArticle) => {
+    setEditingId(article.id);
+    setEditTitle(article.title);
+    setEditContent(article.content);
+    setEditFeaturedImage(article.imageUrl || '');
+    setIsAdding(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditTitle('');
+    setEditContent('');
+    setEditFeaturedImage('');
+  };
+
+  const handleEditFeaturedImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingEditFeatured(true);
+    try {
+      const url = await uploadToImgBB(file);
+      setEditFeaturedImage(url);
+    } catch (error: any) {
+      console.error("Featured image upload failed:", error);
+      alert(error.message || "Failed to upload image.");
+    } finally {
+      setUploadingEditFeatured(false);
+    }
+  };
+
+  const handleEditInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingEditInline(true);
+    try {
+      const url = await uploadToImgBB(file);
+      if (editQuillRef.current) {
+        const editor = editQuillRef.current.getEditor();
+        const range = editor.getSelection();
+        const position = range ? range.index : editor.getLength();
+        editor.insertEmbed(position, 'image', url);
+      } else {
+        setEditContent(prev => prev + `<p><img src="${url}" alt="image" /></p>`);
+      }
+    } catch (error: any) {
+      console.error("Inline image upload failed:", error);
+      alert(error.message || "Failed to upload image.");
+    } finally {
+      setUploadingEditInline(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId || !editTitle.trim() || !editContent.trim()) return;
+
+    const updatedArticle = {
+      title: editTitle.trim(),
+      content: editContent,
+      imageUrl: editFeaturedImage || undefined,
+    };
+
+    if (!isFirebaseConfigured || !db) {
+      const currentNews = news.map(n => n.id === editingId ? { ...n, ...updatedArticle } : n);
+      localStorage.setItem('bethlehem_news', JSON.stringify(currentNews));
+      setNews(currentNews);
+      handleCancelEdit();
+      alert("Article updated locally (Firebase not fully configured).");
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'news', editingId), updatedArticle);
+      setNews(news.map(n => n.id === editingId ? { ...n, ...updatedArticle } : n));
+      handleCancelEdit();
+    } catch (error: any) {
+      console.error("Error updating news in Firestore:", error);
+      alert("Failed to update news. Please try again.");
     }
   };
 
@@ -337,42 +433,181 @@ export default function Home() {
       ) : (
         <div className="space-y-6">
           {news.map(article => (
-            <article key={article.id} className="bg-white rounded-[32px] p-8 sm:p-10 shadow-sm border border-[#e0e0d5] relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-6 flex gap-2">
-                {isAdmin && (
-                  <button 
-                    onClick={() => handleDelete(article.id)}
-                    className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-full transition"
-                    title="Delete Article"
+            editingId === article.id ? (
+              <article key={article.id} className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm border-2 border-[#5A5A40] relative overflow-hidden">
+                <div className="flex justify-between items-center mb-6 border-b border-[#ecece0] pb-4">
+                  <h3 className="text-lg font-serif italic text-[#5A5A40] flex items-center gap-2">
+                    <Pencil className="w-5 h-5 text-stone-400" />
+                    Edit News Article
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="p-1.5 text-stone-400 hover:text-stone-600 rounded-full hover:bg-stone-100 transition"
+                    title="Cancel Editing"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </button>
+                </div>
+
+                <form onSubmit={handleSaveEdit} className="space-y-6 font-sans">
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1.5">Title</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={e => setEditTitle(e.target.value)}
+                      className="w-full p-3.5 bg-[#fcfaf7] border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] font-semibold text-[#2d2d2a]"
+                      required
+                      placeholder="News Title..."
+                    />
+                  </div>
+
+                  {/* Featured Image */}
+                  <div>
+                    <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1.5">Featured Image (Optional)</label>
+                    {editFeaturedImage ? (
+                      <div className="relative inline-block rounded-2xl overflow-hidden border border-[#ecece0] bg-stone-50 max-w-md">
+                        <img src={editFeaturedImage} alt="Featured preview" className="max-h-48 object-cover rounded-2xl" referrerPolicy="no-referrer" />
+                        <button
+                          type="button"
+                          onClick={() => setEditFeaturedImage('')}
+                          className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
+                          title="Remove Image"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className={`flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#d0d0c5] hover:border-[#5A5A40] rounded-2xl cursor-pointer bg-[#fcfaf7] transition ${uploadingEditFeatured ? 'pointer-events-none opacity-60' : ''}`}>
+                        {uploadingEditFeatured ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="w-6 h-6 animate-spin text-[#5A5A40]" />
+                            <span className="text-xs text-stone-500">Uploading image...</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-center">
+                            <Upload className="w-6 h-6 text-stone-400 mb-1" />
+                            <span className="text-xs font-semibold text-stone-600">Click or Drag to Upload Featured Image</span>
+                            <span className="text-[10px] text-stone-400 uppercase tracking-wider">PNG, JPG, GIF up to 10MB</span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleEditFeaturedImageUpload}
+                          disabled={uploadingEditFeatured || !import.meta.env.VITE_IMGBB_API_KEY}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Content & Inline Image Upload */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest">Content</label>
+                      {import.meta.env.VITE_IMGBB_API_KEY && (
+                        <div>
+                          <button
+                            type="button"
+                            disabled={uploadingEditInline}
+                            onClick={() => editInlineFileInputRef.current?.click()}
+                            className="flex items-center gap-1.5 bg-white border border-[#ecece0] text-[#5A5A40] hover:bg-stone-50 transition px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider"
+                          >
+                            {uploadingEditInline ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <ImageIcon className="w-3 h-3" />
+                            )}
+                            {uploadingEditInline ? 'Inserting...' : 'Insert Image'}
+                          </button>
+                          <input
+                            type="file"
+                            ref={editInlineFileInputRef}
+                            onChange={handleEditInlineImageUpload}
+                            accept="image/*"
+                            className="hidden"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-white rounded-2xl overflow-hidden border border-[#ecece0]">
+                      <QuillComponent 
+                        ref={editQuillRef}
+                        theme="snow" 
+                        value={editContent} 
+                        onChange={setEditContent} 
+                        className="h-64 mb-12"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-4 border-t border-[#ecece0]">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="flex-1 bg-white border border-[#ecece0] text-stone-600 px-6 py-3 rounded-xl text-xs uppercase font-bold tracking-widest hover:bg-stone-50 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-[2] bg-[#5A5A40] text-white px-6 py-3 rounded-xl text-xs uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition flex justify-center items-center gap-2 font-bold"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Changes
+                    </button>
+                  </div>
+                </form>
+              </article>
+            ) : (
+              <article key={article.id} className="bg-white rounded-[32px] p-8 sm:p-10 shadow-sm border border-[#e0e0d5] relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 flex items-center gap-1">
+                  {isAdmin && (
+                    <>
+                      <button 
+                        onClick={() => handleStartEdit(article)}
+                        className="p-2 text-stone-400 hover:bg-stone-100 hover:text-[#5A5A40] rounded-full transition"
+                        title="Edit Article"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(article.id)}
+                        className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-full transition"
+                        title="Delete Article"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+                <header className="mb-6">
+                  <h2 className="text-2xl font-serif text-[#2d2d2a] mb-2 pr-20 leading-tight">{article.title}</h2>
+                  <div className="flex items-center text-[10px] uppercase font-bold tracking-widest text-stone-400 font-sans">
+                    <Calendar className="w-3 h-3 mr-1.5" />
+                    {formatDate(article.date)}
+                  </div>
+                </header>
+
+                {article.imageUrl && (
+                  <div className="mb-6 rounded-2xl overflow-hidden max-h-96 border border-[#ecece0] bg-stone-50">
+                    <img 
+                      src={article.imageUrl} 
+                      alt={article.title} 
+                      className="w-full h-full object-cover rounded-2xl"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
                 )}
-              </div>
-              <header className="mb-6">
-                <h2 className="text-2xl font-serif text-[#2d2d2a] mb-2 pr-12 leading-tight">{article.title}</h2>
-                <div className="flex items-center text-[10px] uppercase font-bold tracking-widest text-stone-400 font-sans">
-                  <Calendar className="w-3 h-3 mr-1.5" />
-                  {formatDate(article.date)}
-                </div>
-              </header>
 
-              {article.imageUrl && (
-                <div className="mb-6 rounded-2xl overflow-hidden max-h-96 border border-[#ecece0] bg-stone-50">
-                  <img 
-                    src={article.imageUrl} 
-                    alt={article.title} 
-                    className="w-full h-full object-cover rounded-2xl"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              )}
-
-              <div 
-                className="prose prose-stone max-w-none font-sans text-sm text-stone-700 prose-headings:font-serif prose-headings:font-normal prose-a:text-[#5A5A40]"
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
-              />
-            </article>
+                <div 
+                  className="prose prose-stone max-w-none font-sans text-sm text-stone-700 prose-headings:font-serif prose-headings:font-normal prose-a:text-[#5A5A40]"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
+                />
+              </article>
+            )
           ))}
         </div>
       )}

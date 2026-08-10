@@ -28,7 +28,7 @@ jobs:
         run: npx cap sync android
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '21'
@@ -41,12 +41,12 @@ jobs:
 
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/bethlehem_keystore.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ${{ github.workspace }}/android/app/bethlehem_keystore.jks
 
       - name: Build Android Release AAB
         run: |
           cd android
-          gradle bundleRelease -Pandroid.injected.signing.store.file=bethlehem_keystore.jks -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+          gradle bundleRelease -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/app/bethlehem_keystore.jks -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
 
       - name: Upload to Google Play
         uses: r0adkll/upload-google-play@v1
