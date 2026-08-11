@@ -4,7 +4,7 @@ import {
   Download, Upload, FileSpreadsheet, ExternalLink, Search, Settings, FileText, Check 
 } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, setDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
 import { 
   ArchiveYear, DEFAULT_ARCHIVE_ROLES, ArchiveRole, ArchiveFolder, 
@@ -109,6 +109,13 @@ export default function Archive() {
         const snapshot = await getDocs(collection(db, 'archive_folders'));
         if (!snapshot.empty) {
           fetchedFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ArchiveFolder));
+          // Merge default built-in folders if not saved in Firestore yet
+          const existingIds = new Set(fetchedFolders.map(f => f.id));
+          DEFAULT_ARCHIVE_FOLDERS.forEach(defaultF => {
+            if (!existingIds.has(defaultF.id)) {
+              fetchedFolders.push(defaultF);
+            }
+          });
         } else {
           // Initialize defaults if empty
           fetchedFolders = DEFAULT_ARCHIVE_FOLDERS;
@@ -336,7 +343,7 @@ export default function Archive() {
 
     try {
       if (editingFolder?.id) {
-        await updateDoc(doc(db, 'archive_folders', editingFolder.id), folderData);
+        await setDoc(doc(db, 'archive_folders', editingFolder.id), folderData, { merge: true });
       } else {
         const docRef = await addDoc(collection(db, 'archive_folders'), {
           ...folderData,
@@ -346,6 +353,9 @@ export default function Archive() {
       }
       setIsFolderModalOpen(false);
       await fetchFolders();
+      if (editingFolder) {
+        setSelectedFolder(prev => prev ? ({ ...prev, ...folderData } as ArchiveFolder) : null);
+      }
     } catch (error) {
       console.error("Error saving folder:", error);
       alert("Failed to save folder.");
@@ -934,15 +944,31 @@ export default function Archive() {
                           >
                             <Folder className={`w-3.5 h-3.5 ${isFolderActive ? 'text-white' : 'text-[#5A5A40]'}`} />
                             <span>{folder.name}</span>
+
+                            {/* Admin Rename Button directly on Tab Pill */}
+                            {isAdmin && (
+                              <span 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  openFolderModal(folder); 
+                                }}
+                                className={`ml-1 p-1 rounded hover:bg-black/10 transition-colors cursor-pointer ${
+                                  isFolderActive ? 'text-white/80 hover:text-white' : 'text-stone-400 hover:text-[#5A5A40]'
+                                }`}
+                                title="Rename / Edit Folder"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </span>
+                            )}
                           </button>
 
-                          {/* Admin Edit Folder Button */}
+                          {/* Admin Hover Actions for Deleting custom folders */}
                           {isAdmin && !folder.isBuiltIn && (
                             <div className="absolute -top-2 -right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 bg-white shadow-md rounded-lg p-0.5 border border-[#ecece0] z-10">
                               <button 
                                 onClick={(e) => { e.stopPropagation(); openFolderModal(folder); }}
                                 className="p-1 hover:text-[#5A5A40] text-stone-400 rounded"
-                                title="Edit Folder Fields"
+                                title="Rename or Edit Fields"
                               >
                                 <Pencil className="w-3 h-3" />
                               </button>
@@ -973,13 +999,19 @@ export default function Archive() {
                             <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider font-sans">
                               {selectedYear.year} Archive Record
                             </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <h2 className="text-2xl sm:text-3xl font-serif italic text-[#5A5A40]">
+                              {selectedFolder.name}
+                            </h2>
                             {isAdmin && (
                               <button 
                                 onClick={() => openFolderModal(selectedFolder)}
-                                className="p-1 text-stone-400 hover:text-[#5A5A40] transition rounded-md hover:bg-stone-100"
-                                title="Configure Folder Fields"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-sans font-bold text-[#5A5A40] bg-stone-200/60 hover:bg-stone-300/80 rounded-lg transition"
+                                title="Rename Folder or Edit Fields"
                               >
-                                <Settings className="w-3.5 h-3.5" />
+                                <Pencil className="w-3 h-3" />
+                                <span>Rename / Edit</span>
                               </button>
                             )}
                           </div>
