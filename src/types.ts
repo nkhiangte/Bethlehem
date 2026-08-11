@@ -116,16 +116,86 @@ export const DEFAULT_PROGRAM_ROLES: Record<string, string[]> = {
 
 export const PROGRAM_TITLES = Object.keys(DEFAULT_PROGRAM_ROLES);
 
+export interface ArchiveFieldDefinition {
+  id: string;
+  name: string;
+  type: 'text' | 'number' | 'date' | 'select' | 'textarea' | 'file';
+  options?: string[];
+  required?: boolean;
+}
+
+export interface ArchiveFolder {
+  id: string;
+  name: string;
+  description?: string;
+  isBuiltIn?: boolean;
+  fields: ArchiveFieldDefinition[];
+}
+
+export interface ArchiveEntry {
+  id: string;
+  archiveYearId: string; // or year
+  folderId: string;
+  data: Record<string, any>;
+  createdAt?: string;
+}
+
 export interface ArchiveRole {
   role: string;
   personName: string;
+  phone?: string;
+  remarks?: string;
 }
 
 export interface ArchiveYear {
   id: string;
   year: string;
   roles: ArchiveRole[];
+  entries?: ArchiveEntry[];
 }
+
+export const DEFAULT_ARCHIVE_FOLDERS: ArchiveFolder[] = [
+  {
+    id: 'office_bearers',
+    name: 'Office Bearers (Rawngbawltu)',
+    description: 'List of Office Bearers and Committee Post holders',
+    isBuiltIn: true,
+    fields: [
+      { id: 'role', name: 'Post / Committee Role', type: 'text', required: true },
+      { id: 'personName', name: 'Rawngbawltu Name', type: 'text', required: true },
+      { id: 'phone', name: 'Phone Number', type: 'text' },
+      { id: 'remarks', name: 'Remarks', type: 'textarea' }
+    ]
+  },
+  {
+    id: 'committee_minutes',
+    name: 'Committee Minutes & Records',
+    description: 'Minutes and resolutions from various church committees',
+    isBuiltIn: true,
+    fields: [
+      { id: 'title', name: 'Meeting Title / Topic', type: 'text', required: true },
+      { id: 'committee', name: 'Committee Name', type: 'text', required: true },
+      { id: 'date', name: 'Meeting Date', type: 'date' },
+      { id: 'recordedBy', name: 'Recorded By / Secretary', type: 'text' },
+      { id: 'details', name: 'Resolutions / Summary', type: 'textarea' },
+      { id: 'fileUrl', name: 'Document / File Link', type: 'file' }
+    ]
+  },
+  {
+    id: 'reports',
+    name: 'Reports & Documents',
+    description: 'Annual reports, financial summaries, and official publications',
+    isBuiltIn: true,
+    fields: [
+      { id: 'title', name: 'Document Title', type: 'text', required: true },
+      { id: 'category', name: 'Category / Department', type: 'text' },
+      { id: 'date', name: 'Publication / Record Date', type: 'date' },
+      { id: 'author', name: 'Author / Prepared By', type: 'text' },
+      { id: 'summary', name: 'Summary / Notes', type: 'textarea' },
+      { id: 'fileUrl', name: 'File / Attachment URL', type: 'file' }
+    ]
+  }
+];
 
 export const DEFAULT_ARCHIVE_ROLES = [
   'Kohhran Chairman',

@@ -77,6 +77,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /archive_folders/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /archive_entries/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /committees/{document=**} {
       allow read: if true;
       allow write: if isAdmin();
