@@ -82,6 +82,7 @@ export default function Records() {
   const [recordThlanmualaHunHmangtu, setRecordThlanmualaHunHmangtu] = useState('');
   const [recordKohhranAtang, setRecordKohhranAtang] = useState('');
   const [recordKohhranAh, setRecordKohhranAh] = useState('');
+  const [recordPaNuHming, setRecordPaNuHming] = useState('');
   const [recordHmun, setRecordHmun] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -556,6 +557,7 @@ export default function Records() {
       setRecordThlanmualaHunHmangtu(record.thlanmualaHunHmangtu || '');
       setRecordKohhranAtang(record.kohhranAtang || '');
       setRecordKohhranAh(record.kohhranAh || record.kohhranAtang || '');
+      setRecordPaNuHming(record.paNuHming || '');
       setRecordHmun(record.hmun || record.location || '');
       setRecordCustomValues(record.customFields || {});
     } else {
@@ -578,6 +580,7 @@ export default function Records() {
       setRecordThlanmualaHunHmangtu('');
       setRecordKohhranAtang('');
       setRecordKohhranAh('');
+      setRecordPaNuHming('');
       setRecordHmun('');
       setRecordCustomValues({});
     }
@@ -609,6 +612,7 @@ export default function Records() {
 
     if (subTypeCode === 'baptism') {
       data.birthDate = recordBirthDate;
+      data.paNuHming = recordPaNuHming.trim();
     } else if (subTypeCode === 'marriage') {
       data.groomName = recordGroomName.trim();
       data.brideName = recordBrideName.trim();
@@ -695,6 +699,7 @@ export default function Records() {
           if (subTypeCode === 'baptism') {
             rec.memberName = row['Name'] || row['Hming'] || '';
             rec.birthDate = row['Birth Date'] || row['Pian Ni'] || '';
+            rec.paNuHming = row['Pa/Nu Hming'] || '';
           } else if (subTypeCode === 'marriage') {
             rec.groomName = row['Groom'] || row['Moneitu'] || '';
             rec.brideName = row['Bride'] || row['Mo'] || '';
@@ -884,6 +889,40 @@ export default function Records() {
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', `${title.toLowerCase().replace(/\s+/g, '_')}_records_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Download CSV Template for active subcategory
+  const handleDownloadTemplate = () => {
+    const subCode = currentSubcategory?.code;
+    const customFieldsDef = currentSubcategory?.fields || [];
+
+    let headers: string[] = [];
+
+    if (subCode === 'marriage') {
+      headers = ['Groom', 'Bride', 'Date', 'Details', 'Officiant'];
+    } else if (subCode === 'death') {
+      headers = ['Name', 'Reason', 'Date', 'Officiant', 'Tawngtaisaktu', 'Thlanmuala hun hmangtu', 'Upa Bial'];
+    } else if (subCode === 'baptism') {
+      headers = ['Name', 'Birth Date', 'Pa/Nu Hming', 'Date', 'Upa Bial', 'Officiant'];
+    } else if (['pem', 'dawnsawn', 'testimonial_received', 'testimonial_disbursement'].includes(subCode || '')) {
+      headers = ['Name', 'Family Members', 'Date', 'Kohhran'];
+    } else {
+      headers = ['Name', 'Date', 'Officiant', 'Upa Bial', 'Details'];
+    }
+
+    if (customFieldsDef.length > 0) {
+      headers = [...headers, ...customFieldsDef.map(f => f.name)];
+    }
+
+    const csvContent = Papa.unparse([headers]);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${(currentSubcategory?.name || 'template').toLowerCase().replace(/\s+/g, '_')}_template.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1542,6 +1581,14 @@ export default function Records() {
                   </button>
 
                   <button
+                    onClick={handleDownloadTemplate}
+                    className="bg-[#fcfaf7] text-[#5A5A40] border border-[#ecece0] px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download Template
+                  </button>
+
+                  <button
                     onClick={() => openRecordModal()}
                     className="bg-[#5A5A40] text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition flex items-center gap-1.5"
                   >
@@ -1676,9 +1723,10 @@ export default function Records() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-                            <th className="p-4 pl-6">Hming</th>
+                            <th className="p-4">Hming</th>
                             <th className="p-4">Date</th>
                             <th className="p-4">Pian Ni</th>
+                            <th className="p-4">Pa/Nu Hming</th>
                             <th className="p-4">Upa Bial</th>
                             <th className="p-4">Officiant</th>
                             {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
@@ -1690,6 +1738,7 @@ export default function Records() {
                               <td className="p-4 pl-6 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
                               <td className="p-4 text-stone-600">{record.date || '-'}</td>
                               <td className="p-4 text-stone-600">{record.birthDate || '-'}</td>
+                              <td className="p-4 text-stone-600">{record.paNuHming || '-'}</td>
                               <td className="p-4 text-stone-600">{record.upaBial || '-'}</td>
                               <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
                               {isAdmin && (
@@ -2140,9 +2189,19 @@ export default function Records() {
                           type="text"
                           value={recordMemberName}
                           onChange={e => setRecordMemberName(e.target.value)}
-                          placeholder="e.g. Lalramhluna"
+                           placeholder="e.g. Lalramhluna"
                           className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                           required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Pa/Nu Hming</label>
+                        <input
+                          type="text"
+                          value={recordPaNuHming}
+                          onChange={e => setRecordPaNuHming(e.target.value)}
+                          placeholder="e.g. Lalramhluna (Pa)"
+                          className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
