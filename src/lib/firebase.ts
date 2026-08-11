@@ -12,7 +12,7 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || appletConfig.appId,
 };
 
-const databaseId = appletConfig.firestoreDatabaseId || undefined;
+const databaseId = import.meta.env.VITE_FIREBASE_PROJECT_ID ? undefined : (appletConfig.firestoreDatabaseId || undefined);
 
 const isFirebaseConfigured = !!firebaseConfig.apiKey && !!firebaseConfig.projectId && firebaseConfig.apiKey !== '';
 
@@ -24,8 +24,8 @@ export const auth = isFirebaseConfigured ? getAuth(app!) : null;
 
 export const db = isFirebaseConfigured
   ? (databaseId
-      ? initializeFirestore(app!, { experimentalAutoDetectLongPolling: true }, databaseId)
-      : initializeFirestore(app!, { experimentalAutoDetectLongPolling: true }))
+      ? initializeFirestore(app!, { experimentalForceLongPolling: true }, databaseId)
+      : initializeFirestore(app!, { experimentalForceLongPolling: true }))
   : null;
 
 export { isFirebaseConfigured };
