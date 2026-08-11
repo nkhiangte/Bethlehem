@@ -84,12 +84,17 @@ export default function Records() {
   const [recordKohhranAh, setRecordKohhranAh] = useState('');
   const [recordPaNuHming, setRecordPaNuHming] = useState('');
   const [recordHmun, setRecordHmun] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    setSortConfig(null);
+  }, [activeSubcategoryId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -1719,18 +1724,16 @@ export default function Records() {
 
                   // 3. Baptism
                   if (subCode === 'baptism') {
-                    const [sortConfig, setSortConfig] = useState<{ key: keyof ChurchRecord | 'paNuHming' | 'birthDate'; direction: 'asc' | 'desc' } | null>(null);
-
                     const sortedRecords = [...filteredSubcategoryRecords].sort((a, b) => {
                       if (!sortConfig) return 0;
-                      const aVal = (a[sortConfig.key] || '').toString().toLowerCase();
-                      const bVal = (b[sortConfig.key] || '').toString().toLowerCase();
+                      const aVal = (a[sortConfig.key as keyof ChurchRecord] || '').toString().toLowerCase();
+                      const bVal = (b[sortConfig.key as keyof ChurchRecord] || '').toString().toLowerCase();
                       if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
                       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
                       return 0;
                     });
 
-                    const handleSort = (key: keyof ChurchRecord | 'paNuHming' | 'birthDate') => {
+                    const handleSort = (key: string) => {
                       let direction: 'asc' | 'desc' = 'asc';
                       if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
                         direction = 'desc';
