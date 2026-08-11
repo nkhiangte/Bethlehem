@@ -1719,23 +1719,44 @@ export default function Records() {
 
                   // 3. Baptism
                   if (subCode === 'baptism') {
+                    const [sortConfig, setSortConfig] = useState<{ key: keyof ChurchRecord | 'paNuHming' | 'birthDate'; direction: 'asc' | 'desc' } | null>(null);
+
+                    const sortedRecords = [...filteredSubcategoryRecords].sort((a, b) => {
+                      if (!sortConfig) return 0;
+                      const aVal = (a[sortConfig.key] || '').toString().toLowerCase();
+                      const bVal = (b[sortConfig.key] || '').toString().toLowerCase();
+                      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                      return 0;
+                    });
+
+                    const handleSort = (key: keyof ChurchRecord | 'paNuHming' | 'birthDate') => {
+                      let direction: 'asc' | 'desc' = 'asc';
+                      if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+                        direction = 'desc';
+                      }
+                      setSortConfig({ key, direction });
+                    };
+
                     return (
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-                            <th className="p-4">Hming</th>
-                            <th className="p-4">Date</th>
-                            <th className="p-4">Pian Ni</th>
-                            <th className="p-4">Pa/Nu Hming</th>
-                            <th className="p-4">Upa Bial</th>
-                            <th className="p-4">Officiant</th>
+                            <th className="p-4 pl-6">#</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('memberName')}>Hming {sortConfig?.key === 'memberName' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('date')}>Date {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('birthDate')}>Pian Ni {sortConfig?.key === 'birthDate' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('paNuHming')}>Pa/Nu Hming {sortConfig?.key === 'paNuHming' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('upaBial')}>Upa Bial {sortConfig?.key === 'upaBial' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('officiant')}>Officiant {sortConfig?.key === 'officiant' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                             {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
-                          {filteredSubcategoryRecords.map((record) => (
+                          {sortedRecords.map((record, index) => (
                             <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
-                              <td className="p-4 pl-6 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
+                              <td className="p-4 pl-6 text-stone-500">{index + 1}</td>
+                              <td className="p-4 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
                               <td className="p-4 text-stone-600">{record.date || '-'}</td>
                               <td className="p-4 text-stone-600">{record.birthDate || '-'}</td>
                               <td className="p-4 text-stone-600">{record.paNuHming || '-'}</td>
