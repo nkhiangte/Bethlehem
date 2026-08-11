@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,6 +15,11 @@ const isFirebaseConfigured = !!firebaseConfig.apiKey && !!firebaseConfig.project
 
 export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 export const auth = isFirebaseConfigured ? getAuth(app!) : null;
-export const db = isFirebaseConfigured ? getFirestore(app!) : null;
+export const db = isFirebaseConfigured
+  ? initializeFirestore(app!, {
+      experimentalAutoDetectLongPolling: true,
+    })
+  : null;
 
 export { isFirebaseConfigured };
+

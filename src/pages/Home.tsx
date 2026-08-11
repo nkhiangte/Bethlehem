@@ -5,10 +5,7 @@ import { useAuth } from '../lib/auth';
 import { NewsArticle } from '../types';
 import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
-
-const QuillComponent = ReactQuill as any;
+import { RichTextEditor } from '../components/RichTextEditor';
 
 export default function Home() {
   const [news, setNews] = useState<NewsArticle[]>([]);
@@ -118,14 +115,7 @@ export default function Home() {
     setUploadingInline(true);
     try {
       const url = await uploadToImgBB(file);
-      if (quillRef.current) {
-        const editor = quillRef.current.getEditor();
-        const range = editor.getSelection();
-        const position = range ? range.index : editor.getLength();
-        editor.insertEmbed(position, 'image', url);
-      } else {
-        setNewContent(prev => prev + `<p><img src="${url}" alt="image" /></p>`);
-      }
+      setNewContent(prev => prev + `<p><img src="${url}" alt="image" /></p>`);
     } catch (error: any) {
       console.error("Inline image upload failed:", error);
       alert(error.message || "Failed to upload image.");
@@ -227,14 +217,7 @@ export default function Home() {
     setUploadingEditInline(true);
     try {
       const url = await uploadToImgBB(file);
-      if (editQuillRef.current) {
-        const editor = editQuillRef.current.getEditor();
-        const range = editor.getSelection();
-        const position = range ? range.index : editor.getLength();
-        editor.insertEmbed(position, 'image', url);
-      } else {
-        setEditContent(prev => prev + `<p><img src="${url}" alt="image" /></p>`);
-      }
+      setEditContent(prev => prev + `<p><img src="${url}" alt="image" /></p>`);
     } catch (error: any) {
       console.error("Inline image upload failed:", error);
       alert(error.message || "Failed to upload image.");
@@ -389,15 +372,11 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <div className="bg-white rounded-2xl overflow-hidden border border-[#ecece0]">
-                <QuillComponent 
-                  ref={quillRef}
-                  theme="snow" 
-                  value={newContent} 
-                  onChange={setNewContent} 
-                  className="h-64 mb-12"
-                />
-              </div>
+              <RichTextEditor
+                value={newContent}
+                onChange={setNewContent}
+                placeholder="Write news content..."
+              />
             </div>
 
             <div className="flex gap-3 pt-4 border-t border-[#ecece0]">
@@ -532,15 +511,11 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-                    <div className="bg-white rounded-2xl overflow-hidden border border-[#ecece0]">
-                      <QuillComponent 
-                        ref={editQuillRef}
-                        theme="snow" 
-                        value={editContent} 
-                        onChange={setEditContent} 
-                        className="h-64 mb-12"
-                      />
-                    </div>
+                    <RichTextEditor
+                      value={editContent}
+                      onChange={setEditContent}
+                      placeholder="Edit article content..."
+                    />
                   </div>
 
                   <div className="flex gap-3 pt-4 border-t border-[#ecece0]">
