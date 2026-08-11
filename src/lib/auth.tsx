@@ -35,27 +35,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (u: User) => {
-    if (!db) return;
+    if (!db) {
+      const defaultRole = u.email === 'nkhiangte@gmail.com' ? 'admin' : 'user';
+      setProfile({
+        uid: u.uid,
+        email: u.email || '',
+        fullName: u.displayName || (u.email === 'nkhiangte@gmail.com' ? 'Admin' : 'User'),
+        phoneNumber: u.phoneNumber || '',
+        role: defaultRole
+      });
+      return;
+    }
     try {
       const docRef = doc(db, 'users', u.uid);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setProfile(docSnap.data() as UserProfile);
+        const data = docSnap.data() as UserProfile;
+        setProfile(data);
+        try {
+          localStorage.setItem(`user_profile_${u.uid}`, JSON.stringify(data));
+        } catch (e) {}
       } else {
         // If profile doesn't exist, create a default one (e.g., for the initial admin)
         const defaultRole = u.email === 'nkhiangte@gmail.com' ? 'admin' : 'user';
         const newProfile: UserProfile = {
           uid: u.uid,
           email: u.email || '',
-          fullName: 'Admin',
-          phoneNumber: '',
+          fullName: u.displayName || (u.email === 'nkhiangte@gmail.com' ? 'Admin' : 'User'),
+          phoneNumber: u.phoneNumber || '',
           role: defaultRole
         };
-        await setDoc(docRef, newProfile);
+        try {
+          await setDoc(docRef, newProfile);
+        } catch (e) {
+          console.warn("Could not save new profile to Firestore:", e);
+        }
         setProfile(newProfile);
+        try {
+          localStorage.setItem(`user_profile_${u.uid}`, JSON.stringify(newProfile));
+        } catch (e) {}
       }
     } catch (err) {
-      console.error("Error fetching user profile:", err);
+      console.warn("Could not fetch user profile from Firestore, using cached/fallback profile:", err);
+      try {
+        const cached = localStorage.getItem(`user_profile_${u.uid}`);
+        if (cached) {
+          setProfile(JSON.parse(cached));
+          return;
+        }
+      } catch (e) {}
+
+      const defaultRole = u.email === 'nkhiangte@gmail.com' ? 'admin' : 'user';
+      setProfile({
+        uid: u.uid,
+        email: u.email || '',
+        fullName: u.displayName || (u.email === 'nkhiangte@gmail.com' ? 'Admin' : 'User'),
+        phoneNumber: u.phoneNumber || '',
+        role: defaultRole
+      });
     }
   };
 

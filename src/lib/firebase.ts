@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import appletConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -12,7 +12,8 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || appletConfig.appId,
 };
 
-const databaseId = import.meta.env.VITE_FIREBASE_PROJECT_ID ? undefined : (appletConfig.firestoreDatabaseId || undefined);
+const rawDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || appletConfig.firestoreDatabaseId;
+const databaseId = (rawDatabaseId && rawDatabaseId !== "(default)") ? rawDatabaseId : undefined;
 
 const isFirebaseConfigured = !!firebaseConfig.apiKey && !!firebaseConfig.projectId && firebaseConfig.apiKey !== '';
 
@@ -23,11 +24,10 @@ export const app = isFirebaseConfigured
 export const auth = isFirebaseConfigured ? getAuth(app!) : null;
 
 export const db = isFirebaseConfigured
-  ? (databaseId
-      ? initializeFirestore(app!, { experimentalForceLongPolling: true }, databaseId)
-      : initializeFirestore(app!, { experimentalForceLongPolling: true }))
+  ? (databaseId ? getFirestore(app!, databaseId) : getFirestore(app!))
   : null;
 
 export { isFirebaseConfigured };
+
 
 

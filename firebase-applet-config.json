@@ -1,12 +1,12 @@
 {
-  "projectId": "gen-lang-client-0266494903",
-  "appId": "1:899487415626:web:836c962830f8fafe2a95b3",
-  "apiKey": "AIzaSyBVnSs1K65cguU_4fyrHS5HpUQCFaepm04",
-  "authDomain": "gen-lang-client-0266494903.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-bethlehemkohhran-74859e56-f035-4324-b627-53b4f280c4c3",
-  "storageBucket": "gen-lang-client-0266494903.firebasestorage.app",
-  "messagingSenderId": "899487415626",
-  "measurementId": "",
+  "projectId": "bethlehem-30543",
+  "appId": "1:315499159448:web:3d6e1b58192d3e8eafd5ed",
+  "apiKey": "AIzaSyBCX79p7JjYzNaRxa32Sa_u_sH6unJjnwI",
+  "authDomain": "bethlehem-30543.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "bethlehem-30543.firebasestorage.app",
+  "messagingSenderId": "315499159448",
+  "measurementId": "G-TZ8D5QQR9M",
   "oAuthClientId": "899487415626-juntp6glo9721gng8jm7d3eq71nu7esa.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }
