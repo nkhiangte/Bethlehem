@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Bethlehem Kohhran</string>
-    <string name="title_activity_main">Bethlehem Kohhran</string>
-    <string name="package_name">com.bethlehemkohhran.app</string>
-    <string name="custom_url_scheme">com.bethlehemkohhran.app</string>
-</resources>
