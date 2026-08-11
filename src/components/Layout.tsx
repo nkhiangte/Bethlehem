@@ -45,6 +45,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { user, profile, isAdmin, logout } = useAuth();
 
+  const [visitorCount, setVisitorCount] = useState(() => {
+    const saved = localStorage.getItem('bethlehem_visitor_count');
+    const baseCount = saved ? parseInt(saved, 10) : 1284;
+    return isNaN(baseCount) ? 1284 : baseCount;
+  });
+
+  React.useEffect(() => {
+    // Increment visitor count once per session
+    if (!sessionStorage.getItem('bethlehem_visited_session')) {
+      sessionStorage.setItem('bethlehem_visited_session', 'true');
+      setVisitorCount(prev => {
+        const next = prev + 1;
+        localStorage.setItem('bethlehem_visitor_count', next.toString());
+        return next;
+      });
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-[#2d2d2a] font-serif flex">
       {/* Mobile sidebar backdrop */}
@@ -64,7 +82,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-transparent flex items-center justify-center overflow-hidden">
               <img 
-                src="https://i.ibb.co/CxGJXN7/logo.png" 
+                src="/logo.png" 
                 alt="Bethlehem Kohhran Logo" 
                 className="w-full h-full object-contain rounded-full mix-blend-screen scale-105" 
               />
@@ -138,17 +156,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden opacity-40 flex justify-center items-center">
           {/* Desktop Banner (md and up) */}
           <img 
-            src="https://i.ibb.co/MDJVdsK1/KOHHRAN.jpg" 
+            src="/KOHHRAN.jpg" 
             alt="" 
             className="hidden md:block w-full h-full object-cover object-center"
-            referrerPolicy="no-referrer"
           />
           {/* Mobile Banner (below md) */}
           <img 
-            src="https://i.ibb.co/r221mkgZ/BETHLEHEM.jpg" 
+            src="/BETHLEHEM.jpg" 
             alt="" 
             className="block md:hidden w-full h-full object-cover object-center"
-            referrerPolicy="no-referrer"
           />
         </div>
 
@@ -219,17 +235,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </a>
             </div>
             
-            <div className="flex flex-col items-center gap-2">
-  <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
-    Site Visitors
-  </span>
-
-  <img
-    src="https://visitor-badge.laobi.icu/badge?page_id=bethlehemkohhran.org&left_text=visitors&left_color=%23555555&right_color=%235A5A40"
-    alt="Site Visitors"
-    className="h-7"
-  />
-</div>
+            <div className="flex flex-col items-center gap-1.5 font-sans">
+              <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+                Site Visitors
+              </span>
+              <div className="inline-flex items-center overflow-hidden rounded-md border border-[#ecece0] text-[11px] font-bold shadow-sm">
+                <span className="bg-stone-700 text-white px-2.5 py-1 uppercase tracking-wider text-[9px]">visitors</span>
+                <span className="bg-[#5A5A40] text-white px-2.5 py-1">{visitorCount.toLocaleString()}</span>
+              </div>
+            </div>
 
             <div className="mt-2">
               Powered by <a href="https://wa.me/9612447703" target="_blank" rel="noopener noreferrer" className="text-[#5A5A40] hover:underline font-bold">MegaBits</a>
