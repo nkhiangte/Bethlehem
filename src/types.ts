@@ -295,6 +295,8 @@ export interface GalleryFolder {
   name: string;
   parentFolderId: string | null;
   date: string;
+  driveUrl?: string;
+  description?: string;
 }
 
 export interface GalleryImage {
@@ -303,4 +305,6 @@ export interface GalleryImage {
   imageUrl: string;
   date: string;
   folderId?: string | null;
+  driveUrl?: string;
+  isDriveLink?: boolean;
 }
