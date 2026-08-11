@@ -1614,50 +1614,165 @@ export default function Records() {
                 {(() => {
                   const subCode = currentSubcategory?.code;
 
+                  const MONTH_MAP: Record<string, number> = {
+                    january: 1, jan: 1,
+                    february: 2, feb: 2,
+                    march: 3, mar: 3,
+                    april: 4, apr: 4,
+                    may: 5,
+                    june: 6, jun: 6,
+                    july: 7, jul: 7,
+                    august: 8, aug: 8,
+                    september: 9, sep: 9, sept: 9,
+                    october: 10, oct: 10,
+                    november: 11, nov: 11,
+                    december: 12, dec: 12
+                  };
+
+                  const parseToDate = (dateStr: string | undefined | null): Date | null => {
+                    if (!dateStr || typeof dateStr !== 'string') return null;
+                    const str = dateStr.trim();
+                    if (!str) return null;
+
+                    // 1. ISO YYYY-MM-DD
+                    const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+                    if (isoMatch) {
+                      return new Date(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10) - 1, parseInt(isoMatch[3], 10));
+                    }
+
+                    // 2. YYYY-MM
+                    const yyyyMmMatch = str.match(/^(\d{4})-(\d{1,2})$/);
+                    if (yyyyMmMatch) {
+                      return new Date(parseInt(yyyyMmMatch[1], 10), parseInt(yyyyMmMatch[2], 10) - 1, 1);
+                    }
+
+                    // 3. DD/MM/YYYY or DD-MM-YYYY
+                    const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+                    if (dmyMatch) {
+                      const p1 = parseInt(dmyMatch[1], 10);
+                      const p2 = parseInt(dmyMatch[2], 10);
+                      let y = parseInt(dmyMatch[3], 10);
+                      if (y < 100) y += 2000;
+                      return new Date(y, p2 - 1, p1);
+                    }
+
+                    // 4. MM/YYYY
+                    const myMatch = str.match(/^(\d{1,2})[\/\-](\d{4})$/);
+                    if (myMatch) {
+                      return new Date(parseInt(myMatch[2], 10), parseInt(myMatch[1], 10) - 1, 1);
+                    }
+
+                    // 5. Month name string (e.g. "April", "April 2024", "15 April 2024")
+                    const lower = str.toLowerCase();
+                    let foundMonth: number | null = null;
+                    for (const [mName, mNum] of Object.entries(MONTH_MAP)) {
+                      const regex = new RegExp(`\\b${mName}\\b`, 'i');
+                      if (regex.test(lower) || lower === mName) {
+                        foundMonth = mNum;
+                        break;
+                      }
+                    }
+
+                    if (foundMonth !== null) {
+                      const yearMatch = str.match(/\b(20\d{2}|19\d{2})\b/);
+                      const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+
+                      const dayMatch = str.match(/\b([1-2]?\d|3[01])\b/);
+                      let day = 1;
+                      if (dayMatch) {
+                        const num = parseInt(dayMatch[0], 10);
+                        if (num !== year && num <= 31) {
+                          day = num;
+                        }
+                      }
+                      return new Date(year, foundMonth - 1, day);
+                    }
+
+                    // 6. Standard JS Date parse fallback
+                    const parsed = new Date(str);
+                    if (!isNaN(parsed.getTime())) {
+                      return parsed;
+                    }
+
+                    return null;
+                  };
+
+                  const formatDate = (dateString: string | undefined | null): string => {
+                    if (!dateString) return '-';
+                    const d = parseToDate(dateString);
+                    if (!d) return dateString;
+
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const year = d.getFullYear();
+
+                    return `${day}/${month}/${year}`;
+                  };
+
+                  const sortedRecords = [...filteredSubcategoryRecords].sort((a, b) => {
+                    if (!sortConfig) return 0;
+                    
+                    let aVal = a[sortConfig.key as keyof ChurchRecord] || (sortConfig.key === 'date' ? a.month : '') || '';
+                    let bVal = b[sortConfig.key as keyof ChurchRecord] || (sortConfig.key === 'date' ? b.month : '') || '';
+
+                    if (sortConfig.key === 'date') {
+                      const dateA = parseToDate(aVal as string);
+                      const dateB = parseToDate(bVal as string);
+                      
+                      if (dateA && dateB) {
+                        const timeA = dateA.getTime();
+                        const timeB = dateB.getTime();
+                        if (timeA < timeB) return sortConfig.direction === 'asc' ? -1 : 1;
+                        if (timeA > timeB) return sortConfig.direction === 'asc' ? 1 : -1;
+                        return 0;
+                      }
+                      if (dateA && !dateB) return sortConfig.direction === 'asc' ? -1 : 1;
+                      if (!dateA && dateB) return sortConfig.direction === 'asc' ? 1 : -1;
+                    }
+                    
+                    const aStr = aVal.toString().toLowerCase();
+                    const bStr = bVal.toString().toLowerCase();
+                    if (aStr < bStr) return sortConfig.direction === 'asc' ? -1 : 1;
+                    if (aStr > bStr) return sortConfig.direction === 'asc' ? 1 : -1;
+                    return 0;
+                  });
+
+                  const handleSort = (key: string) => {
+                    let direction: 'asc' | 'desc' = 'asc';
+                    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+                      direction = 'desc';
+                    }
+                    setSortConfig({ key, direction });
+                  };
+
                   // 1. Marriage (Inneih)
                   if (subCode === 'marriage') {
                     return (
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-                            <th className="p-4 pl-6">Moneitu</th>
-                            <th className="p-4">Mo</th>
-                            <th className="p-4">Date</th>
-                            <th className="p-4">Hmun</th>
-                            <th className="p-4">Inneih tirtu</th>
+                            <th className="p-4 pl-6">#</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('groomName')}>Moneitu {sortConfig?.key === 'groomName' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('brideName')}>Mo {sortConfig?.key === 'brideName' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('date')}>Date {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('hmun')}>Hmun {sortConfig?.key === 'hmun' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('officiant')}>Inneih tirtu {sortConfig?.key === 'officiant' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                             {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
-                          {filteredSubcategoryRecords.map((record) => (
+                          {sortedRecords.map((record, index) => (
                             <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
-                              <td className="p-4 pl-6 font-semibold text-[#5A5A40]">
-                                {record.groomName || record.pasalHming || '-'}
-                              </td>
-                              <td className="p-4 font-semibold text-[#5A5A40]">
-                                {record.brideName || record.moHming || '-'}
-                              </td>
-                              <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                              <td className="p-4 pl-6 text-stone-500">{index + 1}</td>
+                              <td className="p-4 font-semibold text-[#5A5A40]">{record.groomName || record.pasalHming || '-'}</td>
+                              <td className="p-4 font-semibold text-[#5A5A40]">{record.brideName || record.moHming || '-'}</td>
+                              <td className="p-4 text-stone-600">{formatDate(record.date || record.month)}</td>
                               <td className="p-4 text-stone-600">{record.hmun || record.location || '-'}</td>
                               <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
                               {isAdmin && (
-                                <td className="p-4 pr-6 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <button 
-                                      onClick={() => openRecordModal(record)} 
-                                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                                      title="Edit Record Entry"
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDeleteRecord(record.id)} 
-                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                                      title="Delete Record Entry"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
+                                <td className="p-4 pr-6 text-right space-x-2">
+                                  <button onClick={() => openRecordModal(record)} className="text-stone-400 hover:text-[#5A5A40]"><Pencil className="w-4 h-4" /></button>
+                                  <button onClick={() => handleDeleteRecord(record.id)} className="text-stone-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                                 </td>
                               )}
                             </tr>
@@ -1673,46 +1788,34 @@ export default function Records() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-                            <th className="p-4 pl-6">Hming</th>
-                            <th className="p-4">Kum</th>
-                            <th className="p-4">Date</th>
-                            <th className="p-4">Thih Chhan</th>
-                            <th className="p-4">Vuitu</th>
-                            <th className="p-4">Tawngtaisaktu</th>
-                            <th className="p-4">Thlanmuala hun hmangtu</th>
-                            <th className="p-4">Upa Bial</th>
+                            <th className="p-4 pl-6">#</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('memberName')}>Hming {sortConfig?.key === 'memberName' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('age')}>Kum {sortConfig?.key === 'age' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('date')}>Date {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('deathReason')}>Thih Chhan {sortConfig?.key === 'deathReason' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('officiant')}>Vuitu {sortConfig?.key === 'officiant' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('tawngtaisaktu')}>Tawngtaisaktu {sortConfig?.key === 'tawngtaisaktu' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('thlanmualaHunHmangtu')}>Thlanmuala hun hmangtu {sortConfig?.key === 'thlanmualaHunHmangtu' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('upaBial')}>Upa Bial {sortConfig?.key === 'upaBial' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                             {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
-                          {filteredSubcategoryRecords.map((record) => (
+                          {sortedRecords.map((record, index) => (
                             <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
-                              <td className="p-4 pl-6 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
+                              <td className="p-4 pl-6 text-stone-500">{index + 1}</td>
+                              <td className="p-4 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
                               <td className="p-4 text-stone-600">{record.age !== undefined && record.age !== null && record.age !== '' ? record.age : '-'}</td>
-                              <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                              <td className="p-4 text-stone-600">{formatDate(record.date || record.month)}</td>
                               <td className="p-4 text-stone-600">{record.deathReason || '-'}</td>
                               <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
                               <td className="p-4 text-stone-600">{record.tawngtaisaktu || '-'}</td>
                               <td className="p-4 text-stone-600">{record.thlanmualaHunHmangtu || '-'}</td>
                               <td className="p-4 text-stone-600">{record.upaBial || '-'}</td>
                               {isAdmin && (
-                                <td className="p-4 pr-6 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <button 
-                                      onClick={() => openRecordModal(record)} 
-                                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                                      title="Edit Record Entry"
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDeleteRecord(record.id)} 
-                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                                      title="Delete Record Entry"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
+                                <td className="p-4 pr-6 text-right space-x-2">
+                                  <button onClick={() => openRecordModal(record)} className="text-stone-400 hover:text-[#5A5A40]"><Pencil className="w-4 h-4" /></button>
+                                  <button onClick={() => handleDeleteRecord(record.id)} className="text-stone-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                                 </td>
                               )}
                             </tr>
@@ -1724,23 +1827,6 @@ export default function Records() {
 
                   // 3. Baptism
                   if (subCode === 'baptism') {
-                    const sortedRecords = [...filteredSubcategoryRecords].sort((a, b) => {
-                      if (!sortConfig) return 0;
-                      const aVal = (a[sortConfig.key as keyof ChurchRecord] || '').toString().toLowerCase();
-                      const bVal = (b[sortConfig.key as keyof ChurchRecord] || '').toString().toLowerCase();
-                      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-                      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-                      return 0;
-                    });
-
-                    const handleSort = (key: string) => {
-                      let direction: 'asc' | 'desc' = 'asc';
-                      if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-                        direction = 'desc';
-                      }
-                      setSortConfig({ key, direction });
-                    };
-
                     return (
                       <table className="w-full text-left border-collapse">
                         <thead>
@@ -1760,8 +1846,8 @@ export default function Records() {
                             <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
                               <td className="p-4 pl-6 text-stone-500">{index + 1}</td>
                               <td className="p-4 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
-                              <td className="p-4 text-stone-600">{record.date || '-'}</td>
-                              <td className="p-4 text-stone-600">{record.birthDate || '-'}</td>
+                              <td className="p-4 text-stone-600">{formatDate(record.date || record.month)}</td>
+                              <td className="p-4 text-stone-600">{record.birthDate ? formatDate(record.birthDate) : '-'}</td>
                               <td className="p-4 text-stone-600">{record.paNuHming || '-'}</td>
                               <td className="p-4 text-stone-600">{record.upaBial || '-'}</td>
                               <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
@@ -1799,38 +1885,26 @@ export default function Records() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-                            <th className="p-4 pl-6">Hming</th>
-                            <th className="p-4">{isOutward ? 'Kohhran ah' : 'Kohhran atang'}</th>
-                            <th className="p-4">Date</th>
-                            <th className="p-4">Member zat</th>
+                            <th className="p-4 pl-6">#</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('memberName')}>Hming {sortConfig?.key === 'memberName' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('kohhranAh')}> {isOutward ? 'Kohhran ah' : 'Kohhran atang'} {sortConfig?.key === 'kohhranAh' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('date')}>Date {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                            <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('familyMembers')}>Member zat {sortConfig?.key === 'familyMembers' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                             {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
-                          {filteredSubcategoryRecords.map((record) => (
+                          {sortedRecords.map((record, index) => (
                             <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
-                              <td className="p-4 pl-6 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
+                              <td className="p-4 pl-6 text-stone-500">{index + 1}</td>
+                              <td className="p-4 font-semibold text-[#5A5A40]">{record.memberName || '-'}</td>
                               <td className="p-4 text-stone-600">{record.kohhranAh || record.kohhranAtang || '-'}</td>
-                              <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                              <td className="p-4 text-stone-600">{formatDate(record.date || record.month)}</td>
                               <td className="p-4 text-stone-600">{record.familyMembers || '-'}</td>
                               {isAdmin && (
-                                <td className="p-4 pr-6 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <button 
-                                      onClick={() => openRecordModal(record)} 
-                                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                                      title="Edit Record Entry"
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDeleteRecord(record.id)} 
-                                      className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                                      title="Delete Record Entry"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
+                                <td className="p-4 pr-6 text-right space-x-2">
+                                  <button onClick={() => openRecordModal(record)} className="text-stone-400 hover:text-[#5A5A40]"><Pencil className="w-4 h-4" /></button>
+                                  <button onClick={() => handleDeleteRecord(record.id)} className="text-stone-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                                 </td>
                               )}
                             </tr>
@@ -1845,40 +1919,28 @@ export default function Records() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-[#fcfaf7] border-b border-[#ecece0] text-[10px] uppercase font-bold text-stone-500 tracking-wider">
-                          <th className="p-4 pl-6">Hming</th>
-                          <th className="p-4">Date</th>
-                          <th className="p-4">Officiant / Leader</th>
-                          <th className="p-4">Details</th>
+                          <th className="p-4 pl-6">#</th>
+                          <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('memberName')}>Hming {sortConfig?.key === 'memberName' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                          <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('date')}>Date {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                          <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('officiant')}>Officiant / Leader {sortConfig?.key === 'officiant' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                          <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('details')}>Details {sortConfig?.key === 'details' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                           {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#ecece0] text-sm text-[#2d2d2a]">
-                        {filteredSubcategoryRecords.map((record) => (
+                        {sortedRecords.map((record, index) => (
                           <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition">
-                            <td className="p-4 pl-6 font-semibold text-[#5A5A40]">
+                            <td className="p-4 pl-6 text-stone-500">{index + 1}</td>
+                            <td className="p-4 font-semibold text-[#5A5A40]">
                               {record.memberName || record.groomName || 'Unnamed Record'}
                             </td>
-                            <td className="p-4 text-stone-600">{record.date || '-'}</td>
+                            <td className="p-4 text-stone-600">{formatDate(record.date || record.month)}</td>
                             <td className="p-4 text-stone-600">{record.officiant || '-'}</td>
                             <td className="p-4 text-stone-600">{record.details || '-'}</td>
                             {isAdmin && (
-                              <td className="p-4 pr-6 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button 
-                                    onClick={() => openRecordModal(record)} 
-                                    className="p-1.5 text-stone-400 hover:text-[#5A5A40] hover:bg-white border border-[#ecece0] rounded-lg transition"
-                                    title="Edit Record Entry"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button 
-                                    onClick={() => handleDeleteRecord(record.id)} 
-                                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition"
-                                    title="Delete Record Entry"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                              <td className="p-4 pr-6 text-right space-x-2">
+                                <button onClick={() => openRecordModal(record)} className="text-stone-400 hover:text-[#5A5A40]"><Pencil className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteRecord(record.id)} className="text-stone-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                               </td>
                             )}
                           </tr>
