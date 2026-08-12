@@ -3,7 +3,7 @@ import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
 import { NewsArticle } from '../types';
-import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save, ChevronDown, ChevronUp, BookOpen, Maximize2 } from 'lucide-react';
+import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save, ChevronDown, ChevronUp, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
 
@@ -16,6 +16,10 @@ export default function Home() {
   const [featuredImage, setFeaturedImage] = useState<string>('');
   const [uploadingFeatured, setUploadingFeatured] = useState(false);
   const [uploadingInline, setUploadingInline] = useState(false);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Article expansion & full reader modal state
   const [expandedArticleIds, setExpandedArticleIds] = useState<string[]>([]);
@@ -280,6 +284,9 @@ export default function Home() {
     return text.length > 200 || paragraphCount > 1 || hasImages || hasLists;
   };
 
+  const totalPages = Math.ceil(news.length / ITEMS_PER_PAGE);
+  const paginatedNews = news.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
@@ -430,7 +437,7 @@ export default function Home() {
         </div>
       ) : (
         <div className="space-y-6">
-          {news.map(article => (
+          {paginatedNews.map(article => (
             editingId === article.id ? (
               <article key={article.id} className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm border-2 border-[#5A5A40] relative overflow-hidden">
                 <div className="flex justify-between items-center mb-6 border-b border-[#ecece0] pb-4">
@@ -648,6 +655,37 @@ export default function Home() {
               })()
             )
           ))}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 pt-6 mt-4">
+          <button
+            onClick={() => {
+              setCurrentPage(prev => Math.max(prev - 1, 1));
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            disabled={currentPage === 1}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-white border border-[#ecece0] text-stone-600 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed font-sans"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Previous
+          </button>
+          <span className="text-[10px] font-bold text-stone-500 font-sans tracking-widest bg-stone-100 px-4 py-2 rounded-xl">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => {
+              setCurrentPage(prev => Math.min(prev + 1, totalPages));
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-white border border-[#ecece0] text-stone-600 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-stone-50 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed font-sans"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
 
