@@ -591,11 +591,11 @@ export default function Home() {
                     </header>
 
                     {article.imageUrl && (
-                      <div className="mb-5 rounded-2xl overflow-hidden max-h-80 border border-[#ecece0] bg-stone-50">
+                      <div className="mb-5 rounded-2xl overflow-hidden border border-[#ecece0] bg-stone-50 flex justify-center">
                         <img 
                           src={article.imageUrl} 
                           alt={article.title} 
-                          className="w-full h-full object-cover rounded-2xl"
+                          className="w-full h-auto max-h-[650px] object-contain rounded-2xl"
                           referrerPolicy="no-referrer"
                         />
                       </div>
@@ -603,7 +603,7 @@ export default function Home() {
 
                     <div className="relative">
                       <div 
-                        className={`prose prose-stone max-w-none font-sans text-sm text-stone-700 prose-headings:font-serif prose-headings:font-normal prose-a:text-[#5A5A40] prose-img:rounded-2xl prose-img:max-h-[500px] prose-img:object-cover prose-img:border prose-img:border-[#ecece0] prose-img:my-4 transition-all duration-300 ${
+                        className={`prose prose-stone max-w-none font-sans text-sm text-stone-700 prose-headings:font-serif prose-headings:font-normal prose-a:text-[#5A5A40] prose-img:rounded-2xl prose-img:w-full prose-img:h-auto prose-img:max-h-[650px] prose-img:object-contain prose-img:border prose-img:border-[#ecece0] prose-img:my-4 prose-img:mx-auto transition-all duration-300 ${
                           longPost && !isExpanded ? 'max-h-40 overflow-hidden' : ''
                         }`}
                         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
@@ -682,18 +682,18 @@ export default function Home() {
             {/* Body Content */}
             <div className="p-6 sm:p-8 overflow-y-auto space-y-6 flex-1 font-sans">
               {viewingArticle.imageUrl && (
-                <div className="rounded-2xl overflow-hidden border border-[#ecece0] max-h-96">
+                <div className="rounded-2xl overflow-hidden border border-[#ecece0] bg-stone-50 flex justify-center">
                   <img 
                     src={viewingArticle.imageUrl} 
                     alt={viewingArticle.title} 
-                    className="w-full h-full object-cover"
+                    className="w-full h-auto max-h-[650px] object-contain rounded-2xl"
                     referrerPolicy="no-referrer"
                   />
                 </div>
               )}
 
               <div 
-                className="prose prose-stone max-w-none text-sm sm:text-base text-stone-800 prose-headings:font-serif prose-a:text-[#5A5A40] prose-img:rounded-2xl prose-img:max-h-[500px] prose-img:border prose-img:border-[#ecece0] prose-img:my-4"
+                className="prose prose-stone max-w-none text-sm sm:text-base text-stone-800 prose-headings:font-serif prose-a:text-[#5A5A40] prose-img:rounded-2xl prose-img:w-full prose-img:h-auto prose-img:max-h-[650px] prose-img:object-contain prose-img:border prose-img:border-[#ecece0] prose-img:my-4 prose-img:mx-auto"
                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewingArticle.content) }}
               />
             </div>
