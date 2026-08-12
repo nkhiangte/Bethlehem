@@ -3,7 +3,7 @@ import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
 import { NewsArticle } from '../types';
-import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save } from 'lucide-react';
+import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save, ChevronDown, ChevronUp, BookOpen, Maximize2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
 
@@ -16,6 +16,10 @@ export default function Home() {
   const [featuredImage, setFeaturedImage] = useState<string>('');
   const [uploadingFeatured, setUploadingFeatured] = useState(false);
   const [uploadingInline, setUploadingInline] = useState(false);
+
+  // Article expansion & full reader modal state
+  const [expandedArticleIds, setExpandedArticleIds] = useState<string[]>([]);
+  const [viewingArticle, setViewingArticle] = useState<NewsArticle | null>(null);
 
   // Edit post state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -259,6 +263,21 @@ export default function Home() {
   const formatDate = (isoString: string) => {
     const d = new Date(isoString);
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpandedArticleIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const isLongContent = (htmlContent: string) => {
+    if (!htmlContent) return false;
+    const text = htmlContent.replace(/<[^>]+>/g, '').trim();
+    const paragraphCount = (htmlContent.match(/<p/g) || []).length;
+    const hasImages = htmlContent.includes('<img');
+    const hasLists = htmlContent.includes('<ul') || htmlContent.includes('<ol');
+    return text.length > 200 || paragraphCount > 1 || hasImages || hasLists;
   };
 
   return (
@@ -537,53 +556,159 @@ export default function Home() {
                 </form>
               </article>
             ) : (
-              <article key={article.id} className="bg-white rounded-[32px] p-8 sm:p-10 shadow-sm border border-[#e0e0d5] relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-6 flex items-center gap-1">
-                  {isAdmin && (
-                    <>
-                      <button 
-                        onClick={() => handleStartEdit(article)}
-                        className="p-2 text-stone-400 hover:bg-stone-100 hover:text-[#5A5A40] rounded-full transition"
-                        title="Edit Article"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(article.id)}
-                        className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-full transition"
-                        title="Delete Article"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-                </div>
-                <header className="mb-6">
-                  <h2 className="text-2xl font-serif text-[#2d2d2a] mb-2 pr-20 leading-tight">{article.title}</h2>
-                  <div className="flex items-center text-[10px] uppercase font-bold tracking-widest text-stone-400 font-sans">
-                    <Calendar className="w-3 h-3 mr-1.5" />
-                    {formatDate(article.date)}
-                  </div>
-                </header>
+              (() => {
+                const isExpanded = expandedArticleIds.includes(article.id);
+                const longPost = isLongContent(article.content);
 
-                {article.imageUrl && (
-                  <div className="mb-6 rounded-2xl overflow-hidden max-h-96 border border-[#ecece0] bg-stone-50">
-                    <img 
-                      src={article.imageUrl} 
-                      alt={article.title} 
-                      className="w-full h-full object-cover rounded-2xl"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                )}
+                return (
+                  <article key={article.id} className="bg-white rounded-[32px] p-6 sm:p-10 shadow-sm border border-[#e0e0d5] relative overflow-hidden transition-all">
+                    <div className="absolute top-0 right-0 p-4 sm:p-6 flex items-center gap-1 z-10">
+                      {isAdmin && (
+                        <>
+                          <button 
+                            onClick={() => handleStartEdit(article)}
+                            className="p-2 text-stone-400 hover:bg-stone-100 hover:text-[#5A5A40] rounded-full transition"
+                            title="Edit Article"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(article.id)}
+                            className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-full transition"
+                            title="Delete Article"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <header className="mb-5">
+                      <h2 className="text-xl sm:text-2xl font-serif text-[#2d2d2a] mb-2 pr-16 leading-tight">{article.title}</h2>
+                      <div className="flex items-center text-[10px] uppercase font-bold tracking-widest text-stone-400 font-sans">
+                        <Calendar className="w-3 h-3 mr-1.5" />
+                        {formatDate(article.date)}
+                      </div>
+                    </header>
 
-                <div 
-                  className="prose prose-stone max-w-none font-sans text-sm text-stone-700 prose-headings:font-serif prose-headings:font-normal prose-a:text-[#5A5A40]"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
-                />
-              </article>
+                    {article.imageUrl && (
+                      <div className="mb-5 rounded-2xl overflow-hidden max-h-80 border border-[#ecece0] bg-stone-50">
+                        <img 
+                          src={article.imageUrl} 
+                          alt={article.title} 
+                          className="w-full h-full object-cover rounded-2xl"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <div 
+                        className={`prose prose-stone max-w-none font-sans text-sm text-stone-700 prose-headings:font-serif prose-headings:font-normal prose-a:text-[#5A5A40] prose-img:rounded-2xl prose-img:max-h-[500px] prose-img:object-cover prose-img:border prose-img:border-[#ecece0] prose-img:my-4 transition-all duration-300 ${
+                          longPost && !isExpanded ? 'max-h-40 overflow-hidden' : ''
+                        }`}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
+                      />
+
+                      {longPost && !isExpanded && (
+                        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
+                      )}
+                    </div>
+
+                    {longPost && (
+                      <div className="mt-4 pt-3 border-t border-[#ecece0] flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          onClick={() => toggleExpand(article.id)}
+                          className="inline-flex items-center gap-2 bg-[#5A5A40] hover:bg-[#4a4a35] text-white px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition shadow-xs font-sans"
+                        >
+                          {isExpanded ? (
+                            <>
+                              <span>Tawm leh rawh / Show Less</span>
+                              <ChevronUp className="w-4 h-4" />
+                            </>
+                          ) : (
+                            <>
+                              <span>Chhiar chhunzawm rawh / Read More</span>
+                              <ChevronDown className="w-4 h-4" />
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => setViewingArticle(article)}
+                          className="inline-flex items-center gap-1.5 text-stone-600 hover:text-[#5A5A40] bg-stone-100 hover:bg-stone-200/80 px-3.5 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition font-sans"
+                          title="Open full reader view"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>Full View</span>
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                );
+              })()
             )
           ))}
+        </div>
+      )}
+
+      {/* Full Article Reader Modal */}
+      {viewingArticle && (
+        <div 
+          className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+          onClick={() => setViewingArticle(null)}
+        >
+          <div 
+            className="bg-white rounded-[32px] max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-stone-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-[#ecece0] flex items-start justify-between gap-4 bg-[#fcfaf7]">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-stone-400 font-sans block mb-1">
+                  {formatDate(viewingArticle.date)}
+                </span>
+                <h2 className="text-xl sm:text-2xl font-serif text-[#2d2d2a] font-semibold leading-tight">
+                  {viewingArticle.title}
+                </h2>
+              </div>
+              <button 
+                onClick={() => setViewingArticle(null)}
+                className="p-2 hover:bg-stone-200/60 text-stone-500 rounded-full transition shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body Content */}
+            <div className="p-6 sm:p-8 overflow-y-auto space-y-6 flex-1 font-sans">
+              {viewingArticle.imageUrl && (
+                <div className="rounded-2xl overflow-hidden border border-[#ecece0] max-h-96">
+                  <img 
+                    src={viewingArticle.imageUrl} 
+                    alt={viewingArticle.title} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              )}
+
+              <div 
+                className="prose prose-stone max-w-none text-sm sm:text-base text-stone-800 prose-headings:font-serif prose-a:text-[#5A5A40] prose-img:rounded-2xl prose-img:max-h-[500px] prose-img:border prose-img:border-[#ecece0] prose-img:my-4"
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewingArticle.content) }}
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-[#ecece0] bg-[#fcfaf7] flex items-center justify-between">
+              <span className="text-xs text-stone-400 font-sans italic">Bethlehem Kohhran News</span>
+              <button
+                onClick={() => setViewingArticle(null)}
+                className="bg-[#5A5A40] text-white px-5 py-2 rounded-xl text-xs uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
