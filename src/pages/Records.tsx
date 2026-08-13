@@ -863,7 +863,7 @@ export default function Records() {
         r.familyMembers || ''
       ]);
     } else {
-      headers = ['Hming', 'Category', 'Subcategory', 'Date', 'Officiant / Leader', 'Upa Bial', 'Details'];
+      headers = ['Hming', 'Category', 'Subcategory', 'Date', 'Officiant / Hruaitu', 'Upa Bial', 'Details'];
       rows = list.map(r => {
         const cat = categories.find(c => c.id === r.categoryId)?.name || '';
         const sub = subcategories.find(s => s.id === r.subcategoryId)?.name || '';
@@ -991,7 +991,7 @@ export default function Records() {
         r.familyMembers || '-'
       ]);
     } else {
-      headers = ['Hming', 'Category', 'Subcategory', 'Date', 'Officiant / Leader', 'Upa Bial', 'Details'];
+      headers = ['Hming', 'Category', 'Subcategory', 'Date', 'Officiant / Hruaitu', 'Upa Bial', 'Details'];
       rows = list.map(r => {
         const cat = categories.find(c => c.id === r.categoryId)?.name || '-';
         const sub = subcategories.find(s => s.id === r.subcategoryId)?.name || '-';
@@ -1926,7 +1926,7 @@ export default function Records() {
                           <th className="p-4 pl-6">#</th>
                           <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('memberName')}>Hming {sortConfig?.key === 'memberName' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                           <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('date')}>Date {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
-                          <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('officiant')}>Officiant / Leader {sortConfig?.key === 'officiant' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
+                          <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('officiant')}>Officiant / Hruaitu {sortConfig?.key === 'officiant' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                           <th className="p-4 cursor-pointer hover:text-[#5A5A40]" onClick={() => handleSort('details')}>Details {sortConfig?.key === 'details' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</th>
                           {isAdmin && <th className="p-4 pr-6 text-right">Actions</th>}
                         </tr>
@@ -2569,7 +2569,7 @@ export default function Records() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Officiant / Leader (Optional)</label>
+                        <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">Officiant / Hruaitu (Optional)</label>
                         <input
                           type="text"
                           value={recordOfficiant}

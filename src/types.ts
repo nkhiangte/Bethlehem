@@ -266,8 +266,8 @@ export const DEFAULT_FELLOWSHIPS = [
 ];
 
 export const DEFAULT_FELLOWSHIP_BEARERS = [
-  'Leader/Chairman',
-  'Asst. Leader/Vice Chairman',
+  'Hruaitu/Chairman',
+  'Asst. Hruaitu/Vice Chairman',
   'Secretary',
   'Asst. Secretary',
   'Treasurer',

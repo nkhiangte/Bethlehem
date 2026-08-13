@@ -271,7 +271,7 @@ export default function FellowshipPage() {
                           type="text" 
                           value={bearer.title} 
                           onChange={e => handleBearerTitleChange(index, e.target.value)}
-                          placeholder="Title (e.g. Leader)"
+                          placeholder="Title (e.g. Hruaitu)"
                           className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
                         />
                       </div>

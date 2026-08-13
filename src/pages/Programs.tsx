@@ -586,8 +586,8 @@ export default function Programs() {
                   <thead className="bg-[#fcfaf7] sticky top-0 z-10">
                     <tr>
                       <th className="px-4 py-3 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest w-[120px]">Date</th>
-                      <th className="px-4 py-3 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest">Zing Leader</th>
-                      <th className="px-4 py-3 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest">Tlai Leader</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest">Zing Hruaitu</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest">Tlai Hruaitu</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#ecece0]">
