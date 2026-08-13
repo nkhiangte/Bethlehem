@@ -7,6 +7,8 @@ import { Image as ImageIcon, Plus, Trash2, X, Upload, Folder, FolderPlus, Chevro
 import { uploadImageToImgbb } from '../lib/imgbb';
 import { parseGoogleDriveUrl } from '../lib/drive';
 
+import { useBackButton } from '../hooks/useBackButton';
+
 const GoogleDriveLogo = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M7.71 3.5L1.15 14.86L4.58 20.8L11.14 9.44L7.71 3.5Z" fill="#0066DA"/>
@@ -17,16 +19,21 @@ const GoogleDriveLogo = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 export default function Gallery() {
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  
+  useBackButton(!!currentFolderId, () => setCurrentFolderId(null));
+
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [folders, setFolders] = useState<GalleryFolder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   
   // Modals
   const [isAddingImage, setIsAddingImage] = useState(false);
   const [isAddingFolder, setIsAddingFolder] = useState(false);
   const [editingFolder, setEditingFolder] = useState<GalleryFolder | null>(null);
   const [viewingImage, setViewingImage] = useState<GalleryImage | null>(null);
+
+  useBackButton(!!viewingImage, () => setViewingImage(null));
   
   // Add Content Mode (File upload vs Google Drive link)
   const [addMode, setAddMode] = useState<'file' | 'drive'>('file');

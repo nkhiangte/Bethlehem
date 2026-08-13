@@ -10,6 +10,7 @@ import {
   ArchiveYear, DEFAULT_ARCHIVE_ROLES, ArchiveRole, ArchiveFolder, 
   ArchiveFieldDefinition, ArchiveEntry, DEFAULT_ARCHIVE_FOLDERS 
 } from '../types';
+import { useBackButton } from '../hooks/useBackButton';
 
 export default function Archive() {
   const { isAdmin } = useAuth();
@@ -22,6 +23,9 @@ export default function Archive() {
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<ArchiveYear | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<ArchiveFolder | null>(null);
+  
+  useBackButton(!!selectedFolder, () => setSelectedFolder(null));
+
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals state

@@ -15,6 +15,7 @@ import {
   DEFAULT_RECORD_CATEGORIES, 
   DEFAULT_RECORD_SUBCATEGORIES 
 } from '../types';
+import { useBackButton } from '../hooks/useBackButton';
 import Papa from 'papaparse';
 
 export default function Records() {
@@ -31,6 +32,9 @@ export default function Records() {
   // Active Navigation
   const [activeCategoryId, setActiveCategoryId] = useState<string>('church_records');
   const [activeSubcategoryId, setActiveSubcategoryId] = useState<string | null>(null);
+  
+  useBackButton(!!activeSubcategoryId, () => setActiveSubcategoryId(null));
+
   const [searchQuery, setSearchQuery] = useState('');
   const [subcatViewMode, setSubcatViewMode] = useState<'table' | 'grid'>('table');
 

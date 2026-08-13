@@ -6,6 +6,7 @@ import { NewsArticle } from '../types';
 import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save, ChevronDown, ChevronUp, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
+import { useBackButton } from '../hooks/useBackButton';
 
 export default function Home() {
   const [news, setNews] = useState<NewsArticle[]>([]);
@@ -24,6 +25,8 @@ export default function Home() {
   // Article expansion & full reader modal state
   const [expandedArticleIds, setExpandedArticleIds] = useState<string[]>([]);
   const [viewingArticle, setViewingArticle] = useState<NewsArticle | null>(null);
+  
+  useBackButton(!!viewingArticle, () => setViewingArticle(null));
 
   // Edit post state
   const [editingId, setEditingId] = useState<string | null>(null);
