@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
-import { BookOpen, Edit2, Save, FileText, History, RefreshCw } from 'lucide-react';
+import { BookOpen, Edit2, Save, FileText, History, RefreshCw, Loader2, Image as ImageIcon } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import { RichTextEditor } from '../components/RichTextEditor';
+import { useBackButton } from '../hooks/useBackButton';
+import { uploadImageToImgbb } from '../lib/imgbb';
 
 interface AboutArticle {
   title: string;
@@ -39,7 +40,11 @@ export default function About() {
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const inlineFileInputRef = useRef<HTMLInputElement>(null);
   const { isAdmin, profile, user } = useAuth();
+
+  useBackButton(isEditing, () => setIsEditing(false));
 
   useEffect(() => {
     fetchAboutContent();
@@ -106,6 +111,31 @@ export default function About() {
       setEditTitle(article.title);
       setEditContent(article.content);
       setIsEditing(true);
+    }
+  };
+
+  const handleInlineImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const url = await uploadImageToImgbb(file);
+      // Append image tag to content
+      setEditContent(prev => prev + `<p><img src="${url}" alt="Church History Image" class="rounded-xl my-4 max-h-96 object-cover mx-auto" /></p>`);
+    } catch (err: any) {
+      console.error('Failed to upload image:', err);
+      alert('Failed to upload image: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setUploadingImage(false);
+      if (inlineFileInputRef.current) {
+        inlineFileInputRef.current.value = '';
+      }
     }
   };
 
@@ -197,15 +227,36 @@ export default function About() {
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1.5">Church History & Content (Rich Text)</label>
-              <div className="bg-white rounded-xl overflow-hidden border border-[#ecece0]">
-                <ReactQuill 
-                  theme="snow" 
-                  value={editContent} 
-                  onChange={setEditContent} 
-                  className="h-80 mb-12"
-                />
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest">Church History & Content (Rich Text)</label>
+                <div>
+                  <button
+                    type="button"
+                    disabled={uploadingImage}
+                    onClick={() => inlineFileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 bg-white border border-[#ecece0] text-[#5A5A40] hover:bg-stone-50 transition px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider"
+                  >
+                    {uploadingImage ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <ImageIcon className="w-3 h-3" />
+                    )}
+                    {uploadingImage ? 'Uploading...' : 'Insert Image'}
+                  </button>
+                  <input
+                    type="file"
+                    ref={inlineFileInputRef}
+                    onChange={handleInlineImageUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
               </div>
+              <RichTextEditor 
+                value={editContent} 
+                onChange={setEditContent} 
+                placeholder="Write church history content..."
+              />
             </div>
             <div className="flex gap-3 pt-4 border-t border-[#ecece0]">
               <button

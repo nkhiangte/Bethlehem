@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, getFirestore } from 'firebase/firestore';
 import appletConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -21,10 +21,19 @@ export const app = isFirebaseConfigured
   ? (getApps().length === 0 ? initializeApp(firebaseConfig) : getApp())
   : null;
 
-export const auth = isFirebaseConfigured ? getAuth(app!) : null;
+export const auth = isFirebaseConfigured && app ? getAuth(app) : null;
 
-export const db = isFirebaseConfigured
-  ? (databaseId ? getFirestore(app!, databaseId) : getFirestore(app!))
+export const db = isFirebaseConfigured && app
+  ? (() => {
+      try {
+        return initializeFirestore(app, {
+          localCache: persistentLocalCache(),
+          experimentalAutoDetectLongPolling: true,
+        }, databaseId);
+      } catch (e) {
+        return databaseId ? getFirestore(app, databaseId) : getFirestore(app);
+      }
+    })()
   : null;
 
 export { isFirebaseConfigured };
