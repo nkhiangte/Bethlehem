@@ -87,6 +87,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
       ogUrl.content = fullUrl;
       document.head.appendChild(ogUrl);
     }
+
+    // Dynamic Title & Meta Description for Google indexing
+    const titles: Record<string, string> = {
+      '/': 'Bethlehem Kohhran - Official Website',
+      '/about': 'About Us & Church History - Bethlehem Kohhran',
+      '/programs': 'Church Programs & Calendar - Bethlehem Kohhran',
+      '/directory': 'Member Directory - Bethlehem Kohhran',
+      '/upa-bial': 'Upa Bial & Veng - Bethlehem Kohhran',
+      '/elders': 'Kohhran Upa & Elders - Bethlehem Kohhran',
+      '/committee': 'Committees & Sub-Committees - Bethlehem Kohhran',
+      '/fellowship': 'Fellowship & Pavalai - Bethlehem Kohhran',
+      '/records': 'Records & Statistics - Bethlehem Kohhran',
+      '/archive': 'Archive & Puipate - Bethlehem Kohhran',
+      '/gallery': 'Photo Gallery - Bethlehem Kohhran',
+    };
+    if (titles[currentPath]) {
+      document.title = titles[currentPath];
+    } else {
+      document.title = 'Bethlehem Kohhran';
+    }
   }, [location.pathname]);
 
   return (

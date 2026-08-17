@@ -608,8 +608,16 @@ export default function Archive() {
 
         selectedFolder.fields.forEach(field => {
           const fieldNameLower = field.name.trim().toLowerCase();
-          // Find matching column index
-          const colIdx = headers.findIndex(h => h === fieldNameLower || h.includes(fieldNameLower) || fieldNameLower.includes(h));
+          const cleanFieldName = fieldNameLower.replace(/[^a-z0-9]/g, '');
+          
+          // Find matching column index by exact or clean match only
+          // We strictly avoid substring (.includes) matching because role titles 
+          // often share words (e.g. "Chairman" and "Vice Chairman", or "Secretary" and "Asst. Secretary")
+          // which causes data duplication across columns.
+          const colIdx = headers.findIndex(h => {
+            const cleanH = h.replace(/[^a-z0-9]/g, '');
+            return h === fieldNameLower || cleanH === cleanFieldName;
+          });
 
           if (colIdx !== -1 && row[colIdx] !== undefined) {
             rowData[field.id] = row[colIdx].trim();
