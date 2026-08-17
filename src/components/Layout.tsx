@@ -61,7 +61,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
         return next;
       });
     }
-  }, []);
+
+    // Dynamic canonical and OG URL tags for SEO
+    let canonicalLink = document.querySelector("link[rel='canonical']") as HTMLLinkElement;
+    if (!canonicalLink) {
+      canonicalLink = document.createElement("link");
+      canonicalLink.rel = "canonical";
+      document.head.appendChild(canonicalLink);
+    }
+    
+    // Format current path, stripping trailing slashes for canonical correctness
+    let currentPath = location.pathname;
+    if (currentPath.length > 1 && currentPath.endsWith('/')) {
+      currentPath = currentPath.slice(0, -1);
+    }
+    const fullUrl = `https://bethlehemkohhran.com${currentPath}`;
+    canonicalLink.href = fullUrl;
+
+    let ogUrl = document.querySelector("meta[property='og:url']") as HTMLMetaElement;
+    if (ogUrl) {
+      ogUrl.content = fullUrl;
+    } else {
+      ogUrl = document.createElement("meta");
+      ogUrl.setAttribute("property", "og:url");
+      ogUrl.content = fullUrl;
+      document.head.appendChild(ogUrl);
+    }
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-[#2d2d2a] font-serif flex">
