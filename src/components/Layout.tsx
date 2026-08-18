@@ -251,8 +251,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="relative z-10 flex-1 overflow-auto p-4 sm:p-8 flex flex-col">
-          <div className="max-w-7xl mx-auto w-full flex-1">
+        <main className="relative z-10 flex-1 overflow-auto p-4 sm:p-6 lg:p-8 flex flex-col">
+          <div className="w-full flex-1">
             {children}
           </div>
           <footer className="mt-8 pt-6 pb-2 border-t border-[#e0e0d5]/50 flex flex-col items-center gap-4 text-xs text-stone-500 font-medium">

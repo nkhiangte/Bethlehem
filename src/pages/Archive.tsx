@@ -1055,122 +1055,94 @@ export default function Archive() {
       {loading ? (
         <div className="text-center py-12 text-stone-500 font-sans">Loading archives...</div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="space-y-4 w-full">
           
-          {/* Left Column: Archive Year Selector */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="flex items-center justify-between px-2">
-              <h2 className="text-xs uppercase tracking-widest font-bold text-stone-400 font-sans">
-                Archive Years
-              </h2>
-            </div>
-
-            <div className="space-y-2.5 max-h-[75vh] overflow-y-auto pr-1">
-              {archives.map((archive) => {
-                const isActive = selectedYear?.id === archive.id;
-
-                return (
-                  <div
-                    key={archive.id}
-                    className={`group relative rounded-[20px] border transition-all ${
-                      isActive
-                        ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-md'
-                        : 'bg-white text-[#2d2d2a] border-[#e0e0d5] hover:border-stone-400'
-                    }`}
-                  >
-                    <button
-                      onClick={() => setSelectedYear(archive)}
-                      className="w-full text-left p-3.5 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3 pr-8">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 font-sans ${
-                          isActive ? 'bg-white/20 text-white' : 'bg-[#fcfaf7] border border-[#ecece0] text-[#5A5A40]'
-                        }`}>
-                          <Calendar className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <h3 className="font-serif italic text-base leading-tight">
-                            {archive.year}
-                          </h3>
-                        </div>
-                      </div>
-                      <ChevronRight className={`w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5 ${
-                        isActive ? 'text-white/80' : 'text-stone-300'
-                      }`} />
-                    </button>
-
-                    {/* Admin Edit/Delete Year */}
-                    {isAdmin && (
-                      <div className="absolute top-2.5 right-8 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); openYearModal(archive); }}
-                          className={`p-1.5 rounded-lg border transition ${
-                            isActive 
-                              ? 'bg-white/20 text-white border-white/30 hover:bg-white/35' 
-                              : 'bg-[#fcfaf7] text-stone-500 border-[#ecece0] hover:text-[#5A5A40]'
+          {/* Top Archive Controls Bar: Years & Folders */}
+          <div className="bg-white rounded-2xl border border-[#e0e0d5] p-3.5 sm:p-4 shadow-sm space-y-3">
+            
+            {/* Row 1: Years Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-[#ecece0]">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 mr-1 text-[#5A5A40]">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-[11px] uppercase font-bold tracking-wider font-sans">
+                    Archive Year:
+                  </span>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {archives.map((archive) => {
+                    const isActive = selectedYear?.id === archive.id;
+                    return (
+                      <div key={archive.id} className="relative group flex items-center">
+                        <button
+                          onClick={() => setSelectedYear(archive)}
+                          className={`px-3 py-1.5 rounded-xl font-serif italic text-base transition-all flex items-center gap-1.5 border ${
+                            isActive
+                              ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-sm font-semibold'
+                              : 'bg-[#fcfaf7] text-[#2d2d2a] border-[#ecece0] hover:border-stone-400 hover:bg-white'
                           }`}
-                          title="Edit Year"
                         >
-                          <Pencil className="w-3 h-3" />
+                          <span>{archive.year}</span>
                         </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleDeleteYear(archive.id); }}
-                          className={`p-1.5 rounded-lg border transition ${
-                            isActive 
-                              ? 'bg-red-900/40 text-red-100 border-red-500/30 hover:bg-red-800/55' 
-                              : 'bg-red-50 text-red-500 border-red-100 hover:text-red-700 hover:bg-red-100'
-                          }`}
-                          title="Delete Year"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+
+                        {/* Admin Edit/Delete Year on Hover */}
+                        {isAdmin && (
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 ml-1">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); openYearModal(archive); }}
+                              className="p-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-600 border border-stone-200"
+                              title="Edit Year"
+                            >
+                              <Pencil className="w-2.5 h-2.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteYear(archive.id); }}
+                              className="p-1 rounded-md bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                              title="Delete Year"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-              {archives.length === 0 && (
-                <div className="text-center py-6 text-stone-400 font-sans italic">No archives found.</div>
+                    );
+                  })}
+                  {archives.length === 0 && (
+                    <span className="text-xs text-stone-400 font-sans italic">No archive years found.</span>
+                  )}
+                </div>
+              </div>
+
+              {isAdmin && (
+                <button 
+                  onClick={() => openYearModal()}
+                  className="text-[10px] font-bold uppercase tracking-widest text-[#5A5A40] hover:bg-[#5A5A40] hover:text-white flex items-center gap-1 font-sans px-3 py-1.5 bg-[#fcfaf7] rounded-xl border border-[#ecece0] transition"
+                >
+                  <Plus className="w-3 h-3" /> Add Year
+                </button>
               )}
             </div>
-          </div>
 
-          {/* Right Column: Folder Tabs & Data Records */}
-          <div className="lg:col-span-9 space-y-6">
-            {selectedYear ? (
-              <div className="space-y-6">
-                
-                {/* Folder Navigation Tabs */}
-                <div className="bg-white rounded-[24px] border border-[#e0e0d5] p-3 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#ecece0] pb-3 mb-3">
-                    <div className="flex items-center gap-2 px-2">
-                      <Folder className="w-4 h-4 text-[#5A5A40]" />
-                      <span className="text-xs uppercase font-bold text-[#5A5A40] tracking-widest font-sans">
-                        Archive Folders ({selectedYear.year})
-                      </span>
-                    </div>
-
-                    {/* Admin Add Folder Shortcut */}
-                    {isAdmin && (
-                      <button 
-                        onClick={() => openFolderModal()}
-                        className="text-[10px] font-bold uppercase tracking-widest text-[#5A5A40] hover:underline flex items-center gap-1 font-sans px-2"
-                      >
-                        <Plus className="w-3 h-3" /> Create Folder
-                      </button>
-                    )}
+            {/* Row 2: Folders Selector */}
+            {selectedYear && (
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 mr-1 text-[#5A5A40]">
+                    <Folder className="w-4 h-4" />
+                    <span className="text-[11px] uppercase font-bold tracking-wider font-sans">
+                      Folders ({selectedYear.year}):
+                    </span>
                   </div>
 
-                  {/* Folder Tab Pills */}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {folders.map((folder) => {
                       const isFolderActive = selectedFolder?.id === folder.id;
-
                       return (
                         <div key={folder.id} className="relative group">
                           <button
                             onClick={() => setSelectedFolder(folder)}
-                            className={`px-4 py-2.5 rounded-xl text-xs font-semibold font-sans transition-all flex items-center gap-2 border ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold font-sans transition-all flex items-center gap-1.5 border ${
                               isFolderActive
                                 ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-sm'
                                 : 'bg-[#fcfaf7] text-stone-600 border-[#ecece0] hover:border-stone-400 hover:text-[#5A5A40]'
@@ -1186,12 +1158,12 @@ export default function Archive() {
                                   e.stopPropagation(); 
                                   openFolderModal(folder); 
                                 }}
-                                className={`ml-1 p-1 rounded hover:bg-black/10 transition-colors cursor-pointer ${
+                                className={`ml-0.5 p-0.5 rounded hover:bg-black/10 transition-colors cursor-pointer ${
                                   isFolderActive ? 'text-white/80 hover:text-white' : 'text-stone-400 hover:text-[#5A5A40]'
                                 }`}
                                 title="Rename / Edit Folder"
                               >
-                                <Pencil className="w-3 h-3" />
+                                <Pencil className="w-2.5 h-2.5" />
                               </span>
                             )}
                           </button>
@@ -1204,14 +1176,14 @@ export default function Archive() {
                                 className="p-1 hover:text-[#5A5A40] text-stone-400 rounded"
                                 title="Rename or Edit Fields"
                               >
-                                <Pencil className="w-3 h-3" />
+                                <Pencil className="w-2.5 h-2.5" />
                               </button>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
                                 className="p-1 hover:text-red-500 text-stone-400 rounded"
                                 title="Delete Folder"
                               >
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-2.5 h-2.5" />
                               </button>
                             </div>
                           )}
@@ -1221,246 +1193,256 @@ export default function Archive() {
                   </div>
                 </div>
 
-                {/* Selected Folder Main Content Card */}
-                {selectedFolder ? (
-                  <div className="bg-white rounded-[32px] border border-[#e0e0d5] shadow-sm overflow-hidden">
-                    
-                    {/* Header Banner */}
-                    <div className="p-6 sm:p-8 border-b border-[#e0e0d5] bg-[#fcfaf7]">
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider font-sans">
-                              {selectedYear.year} Archive Record
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <h2 className="text-2xl sm:text-3xl font-serif italic text-[#5A5A40]">
-                              {selectedFolder.name}
-                            </h2>
-                            {isAdmin && (
-                              <button 
-                                onClick={() => openFolderModal(selectedFolder)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-sans font-bold text-[#5A5A40] bg-stone-200/60 hover:bg-stone-300/80 rounded-lg transition"
-                                title="Rename Folder or Edit Fields"
-                              >
-                                <Pencil className="w-3 h-3" />
-                                <span>Rename / Edit</span>
-                              </button>
-                            )}
-                          </div>
-                          <h2 className="text-2xl font-serif italic text-[#5A5A40]">{selectedFolder.name}</h2>
-                          {selectedFolder.description && (
-                            <p className="text-xs text-stone-500 font-sans mt-1">
-                              {selectedFolder.description}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Top Action Toolbar */}
-                        <div className="flex flex-wrap items-center gap-2">
-                          
-                          {/* Search Input */}
-                          <div className="relative">
-                            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                            <input 
-                              type="text" 
-                              value={searchQuery}
-                              onChange={e => setSearchQuery(e.target.value)}
-                              placeholder="Search folder records..."
-                              className="pl-8 pr-3 py-2 bg-white border border-[#ecece0] rounded-xl text-xs font-sans focus:outline-none focus:ring-1 focus:ring-[#5A5A40] w-48"
-                            />
-                            {searchQuery && (
-                              <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Template Download Button */}
-                          <button 
-                            onClick={downloadCSVTemplate}
-                            className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-3 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest font-sans flex items-center gap-1.5 transition shadow-sm"
-                            title="Download CSV Template tailored for this folder's fields"
-                          >
-                            <FileSpreadsheet className="w-3.5 h-3.5 text-[#5A5A40]" />
-                            Template
-                          </button>
-
-                          {/* Export CSV Data Button */}
-                          <button 
-                            onClick={exportCurrentFolderCSV}
-                            className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-3 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest font-sans flex items-center gap-1.5 transition shadow-sm"
-                            title="Export all current records to CSV"
-                          >
-                            <Download className="w-3.5 h-3.5 text-[#5A5A40]" />
-                            Export CSV
-                          </button>
-
-                          {/* Admin CSV Upload Button */}
-                          {isAdmin && (
-                            <label className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-3 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest font-sans flex items-center gap-1.5 transition cursor-pointer shadow-sm">
-                              <Upload className="w-3.5 h-3.5 text-[#5A5A40]" />
-                              Upload CSV
-                              <input 
-                                type="file" 
-                                accept=".csv" 
-                                onChange={handleCSVFileUpload}
-                                className="hidden" 
-                              />
-                            </label>
-                          )}
-
-                          {/* Admin Clear All Records Button */}
-                          {isAdmin && displayEntries.length > 0 && (
-                            <button 
-                              onClick={handleDeleteAllEntriesInFolder}
-                              className="bg-white border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest transition font-sans flex items-center gap-1.5 shrink-0 shadow-sm"
-                              title="Delete all records in this folder"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                              Clear All ({displayEntries.length})
-                            </button>
-                          )}
-
-                          {/* Admin Add Entry Button */}
-                          {isAdmin && (
-                            <button 
-                              onClick={() => openEntryModal()}
-                              className="bg-[#5A5A40] text-white px-3.5 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-1.5 shrink-0 shadow-sm"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              Add Record
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Table of Entries */}
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-[#ecece0] font-sans">
-                        <thead className="bg-[#fcfaf7]">
-                          <tr>
-                            <th scope="col" className="px-6 py-4 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest w-12">
-                              #
-                            </th>
-                            {selectedFolder.fields.map(field => {
-                              const activeSort = getActiveSortField();
-                              const isSorted = activeSort?.fieldId === field.id;
-
-                              return (
-                                <th 
-                                  key={field.id} 
-                                  scope="col" 
-                                  onClick={() => handleSort(field.id)}
-                                  className="px-6 py-4 text-left text-[10px] font-bold text-stone-500 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-[#5A5A40] transition select-none group"
-                                  title={`Click to sort by ${field.name}`}
-                                >
-                                  <div className="flex items-center gap-1.5">
-                                    <span>{field.name}</span>
-                                    {isSorted ? (
-                                      sortDirection === 'desc' ? (
-                                        <ArrowDown className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
-                                      ) : (
-                                        <ArrowUp className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
-                                      )
-                                    ) : (
-                                      <ArrowUpDown className="w-3 h-3 text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                                    )}
-                                  </div>
-                                </th>
-                              );
-                            })}
-                            {isAdmin && (
-                              <th scope="col" className="px-6 py-4 text-right text-[10px] font-bold text-stone-400 uppercase tracking-widest w-24">
-                                Actions
-                              </th>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-[#ecece0]">
-                          {displayEntries.map((record, index) => (
-                            <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition-colors">
-                              <td className="px-6 py-4 whitespace-nowrap text-xs text-stone-400 font-mono">
-                                {index + 1}
-                              </td>
-
-                              {selectedFolder.fields.map(field => {
-                                const rawVal = record.data[field.id] !== undefined 
-                                  ? record.data[field.id] 
-                                  : record.data[field.name];
-
-                                const strVal = (rawVal ?? '').toString();
-
-                                // Render URL / File fields as clickable links
-                                const isLink = field.type === 'file' || strVal.startsWith('http://') || strVal.startsWith('https://');
-
-                                return (
-                                  <td key={field.id} className="px-6 py-4 text-xs font-semibold text-[#2d2d2a] whitespace-normal max-w-xs break-words">
-                                    {isLink && strVal ? (
-                                      <a 
-                                        href={strVal} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
-                                        className="inline-flex items-center gap-1.5 text-[#5A5A40] hover:underline font-bold"
-                                      >
-                                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                                        View Attachment
-                                      </a>
-                                    ) : (
-                                      strVal || <span className="text-stone-300 font-normal italic">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-
-                              {isAdmin && (
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-xs">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <button 
-                                      onClick={() => openEntryModal(record)}
-                                      className="p-1.5 text-stone-400 hover:text-[#5A5A40] transition rounded-lg hover:bg-stone-100"
-                                      title="Edit Record"
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                      onClick={() => handleDeleteEntry(record)}
-                                      className="p-1.5 text-stone-400 hover:text-red-500 transition rounded-lg hover:bg-red-50"
-                                      title="Delete Record"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-
-                          {displayEntries.length === 0 && (
-                            <tr>
-                              <td colSpan={selectedFolder.fields.length + (isAdmin ? 2 : 1)} className="px-6 py-12 text-center text-sm text-stone-500 italic font-sans">
-                                {searchQuery ? 'No records match your search filter.' : `No entries found in "${selectedFolder.name}" for ${selectedYear.year}. Click "Add Record" or "Upload CSV" to begin.`}
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-stone-500 font-sans italic bg-white border border-[#e0e0d5] rounded-[32px]">
-                    Please select a Folder from the list above.
-                  </div>
+                {isAdmin && (
+                  <button 
+                    onClick={() => openFolderModal()}
+                    className="text-[10px] font-bold uppercase tracking-widest text-[#5A5A40] hover:bg-[#5A5A40] hover:text-white flex items-center gap-1 font-sans px-3 py-1.5 bg-[#fcfaf7] rounded-xl border border-[#ecece0] transition"
+                  >
+                    <Plus className="w-3 h-3" /> Create Folder
+                  </button>
                 )}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-stone-500 font-sans italic bg-white border border-[#e0e0d5] rounded-[32px]">
-                Please select a Year from the archive list on the left to view records.
               </div>
             )}
           </div>
+
+          {/* Full-Width Selected Folder Main Content Card */}
+          {selectedYear ? (
+            selectedFolder ? (
+              <div className="bg-white rounded-2xl border border-[#e0e0d5] shadow-sm overflow-hidden w-full">
+                
+                {/* Header Banner */}
+                <div className="p-4 sm:p-5 border-b border-[#e0e0d5] bg-[#fcfaf7]">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider font-sans">
+                          {selectedYear.year} Archive Record
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-xl sm:text-2xl font-serif italic text-[#5A5A40]">
+                          {selectedFolder.name}
+                        </h2>
+                        {isAdmin && (
+                          <button 
+                            onClick={() => openFolderModal(selectedFolder)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-sans font-bold text-[#5A5A40] bg-stone-200/60 hover:bg-stone-300/80 rounded-md transition"
+                            title="Rename Folder or Edit Fields"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Rename / Edit</span>
+                          </button>
+                        )}
+                      </div>
+                      {selectedFolder.description && (
+                        <p className="text-xs text-stone-500 font-sans mt-0.5">
+                          {selectedFolder.description}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Top Action Toolbar */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      
+                      {/* Search Input */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <input 
+                          type="text" 
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                          placeholder="Search records..."
+                          className="pl-7 pr-3 py-1.5 bg-white border border-[#ecece0] rounded-lg text-xs font-sans focus:outline-none focus:ring-1 focus:ring-[#5A5A40] w-40 sm:w-48"
+                        />
+                        {searchQuery && (
+                          <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Template Download Button */}
+                      <button 
+                        onClick={downloadCSVTemplate}
+                        className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition shadow-sm"
+                        title="Download CSV Template tailored for this folder's fields"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-[#5A5A40]" />
+                        Template
+                      </button>
+
+                      {/* Export CSV Data Button */}
+                      <button 
+                        onClick={exportCurrentFolderCSV}
+                        className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition shadow-sm"
+                        title="Export all current records to CSV"
+                      >
+                        <Download className="w-3.5 h-3.5 text-[#5A5A40]" />
+                        Export
+                      </button>
+
+                      {/* Admin CSV Upload Button */}
+                      {isAdmin && (
+                        <label className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition cursor-pointer shadow-sm">
+                          <Upload className="w-3.5 h-3.5 text-[#5A5A40]" />
+                          Upload CSV
+                          <input 
+                            type="file" 
+                            accept=".csv" 
+                            onChange={handleCSVFileUpload}
+                            className="hidden" 
+                          />
+                        </label>
+                      )}
+
+                      {/* Admin Clear All Records Button */}
+                      {isAdmin && displayEntries.length > 0 && (
+                        <button 
+                          onClick={handleDeleteAllEntriesInFolder}
+                          className="bg-white border border-red-200 text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider transition font-sans flex items-center gap-1 shrink-0 shadow-sm"
+                          title="Delete all records in this folder"
+                        >
+                          <Trash2 className="w-3 h-3 text-red-500" />
+                          Clear All ({displayEntries.length})
+                        </button>
+                      )}
+
+                      {/* Admin Add Entry Button */}
+                      {isAdmin && (
+                        <button 
+                          onClick={() => openEntryModal()}
+                          className="bg-[#5A5A40] text-white px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider hover:bg-[#4a4a35] transition font-sans flex items-center gap-1.5 shrink-0 shadow-sm"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Record
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table of Entries */}
+                <div className="overflow-x-auto w-full">
+                  <table className="min-w-full divide-y divide-[#ecece0] font-sans">
+                    <thead className="bg-[#fcfaf7]">
+                      <tr>
+                        <th scope="col" className="px-4 py-3 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest w-10">
+                          #
+                        </th>
+                        {selectedFolder.fields.map(field => {
+                          const activeSort = getActiveSortField();
+                          const isSorted = activeSort?.fieldId === field.id;
+
+                          return (
+                            <th 
+                              key={field.id} 
+                              scope="col" 
+                              onClick={() => handleSort(field.id)}
+                              className="px-4 py-3 text-left text-[10px] font-bold text-stone-500 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-[#5A5A40] transition select-none group"
+                              title={`Click to sort by ${field.name}`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span>{field.name}</span>
+                                {isSorted ? (
+                                  sortDirection === 'desc' ? (
+                                    <ArrowDown className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                                  ) : (
+                                    <ArrowUp className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                                  )
+                                ) : (
+                                  <ArrowUpDown className="w-3 h-3 text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                )}
+                              </div>
+                            </th>
+                          );
+                        })}
+                        {isAdmin && (
+                          <th scope="col" className="px-4 py-3 text-right text-[10px] font-bold text-stone-400 uppercase tracking-widest w-20">
+                            Actions
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-[#ecece0]">
+                      {displayEntries.map((record, index) => (
+                        <tr key={record.id} className="hover:bg-[#f5f5f0]/50 transition-colors">
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-stone-400 font-mono">
+                            {index + 1}
+                          </td>
+
+                          {selectedFolder.fields.map(field => {
+                            const rawVal = record.data[field.id] !== undefined 
+                              ? record.data[field.id] 
+                              : record.data[field.name];
+
+                            const strVal = (rawVal ?? '').toString();
+
+                            // Render URL / File fields as clickable links
+                            const isLink = field.type === 'file' || strVal.startsWith('http://') || strVal.startsWith('https://');
+
+                            return (
+                              <td key={field.id} className="px-4 py-3 text-xs font-medium text-[#2d2d2a] whitespace-normal">
+                                {isLink && strVal ? (
+                                  <a 
+                                    href={strVal} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="inline-flex items-center gap-1.5 text-[#5A5A40] hover:underline font-bold"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                                    View Attachment
+                                  </a>
+                                ) : (
+                                  strVal || <span className="text-stone-300 font-normal italic">-</span>
+                                )}
+                              </td>
+                            );
+                          })}
+
+                          {isAdmin && (
+                            <td className="px-4 py-3 whitespace-nowrap text-right text-xs">
+                              <div className="flex items-center justify-end gap-1">
+                                <button 
+                                  onClick={() => openEntryModal(record)}
+                                  className="p-1 text-stone-400 hover:text-[#5A5A40] transition rounded-md hover:bg-stone-100"
+                                  title="Edit Record"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteEntry(record)}
+                                  className="p-1 text-stone-400 hover:text-red-500 transition rounded-md hover:bg-red-50"
+                                  title="Delete Record"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+
+                      {displayEntries.length === 0 && (
+                        <tr>
+                          <td colSpan={selectedFolder.fields.length + (isAdmin ? 2 : 1)} className="px-6 py-12 text-center text-sm text-stone-500 italic font-sans">
+                            {searchQuery ? 'No records match your search filter.' : `No entries found in "${selectedFolder.name}" for ${selectedYear.year}. Click "Add Record" or "Upload CSV" to begin.`}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-stone-500 font-sans italic bg-white border border-[#e0e0d5] rounded-2xl">
+                Please select a Folder from the list above.
+              </div>
+            )
+          ) : (
+            <div className="text-center py-12 text-stone-500 font-sans italic bg-white border border-[#e0e0d5] rounded-2xl">
+              Please select a Year from the archive list above to view records.
+            </div>
+          )}
         </div>
       )}
 
