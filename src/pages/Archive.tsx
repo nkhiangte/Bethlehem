@@ -417,7 +417,20 @@ export default function Archive() {
 
     if (entry) {
       setEditingEntry(entry);
-      setEntryFormData({ ...entry.data });
+      const initial: Record<string, any> = {};
+      selectedFolder.fields.forEach(f => {
+        // Retrieve value matching field.id, field.name, or case-insensitive name
+        let val = entry.data[f.id];
+        if (val === undefined && entry.data[f.name] !== undefined) {
+          val = entry.data[f.name];
+        }
+        if (val === undefined) {
+          const matchKey = Object.keys(entry.data).find(k => k.trim().toLowerCase() === f.name.trim().toLowerCase() || k.trim().toLowerCase() === f.id.trim().toLowerCase());
+          if (matchKey) val = entry.data[matchKey];
+        }
+        initial[f.id] = val !== undefined && val !== null ? val : '';
+      });
+      setEntryFormData(initial);
     } else {
       setEditingEntry(null);
       const initial: Record<string, any> = {};
@@ -487,7 +500,7 @@ export default function Archive() {
 
     if (!isFirebaseConfigured || !db) {
       let updatedEntries = [...entries];
-      if (editingEntry) {
+      if (editingEntry && !editingEntry.id.startsWith('role_legacy_')) {
         updatedEntries = updatedEntries.map(e => e.id === editingEntry.id ? { ...e, data: entryFormData } : e);
       } else {
         const newEntry: ArchiveEntry = {
@@ -504,8 +517,13 @@ export default function Archive() {
     }
 
     try {
-      if (editingEntry?.id) {
-        await updateDoc(doc(db, 'archive_entries', editingEntry.id), { data: entryFormData });
+      if (editingEntry?.id && !editingEntry.id.startsWith('role_legacy_')) {
+        await setDoc(doc(db, 'archive_entries', editingEntry.id), {
+          archiveYearId: selectedYear.id,
+          folderId: selectedFolder.id,
+          data: entryFormData,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
       } else {
         await addDoc(collection(db, 'archive_entries'), entryData);
       }
@@ -517,8 +535,43 @@ export default function Archive() {
     }
   };
 
-  const handleDeleteEntry = async (entryId: string) => {
-    if (!confirm("Are you sure you want to delete this archive record?")) return;
+  const handleDeleteEntry = async (recordOrId: ArchiveEntry | string) => {
+    const entryId = typeof recordOrId === 'string' ? recordOrId : recordOrId.id;
+    const entryRecord = typeof recordOrId === 'string' ? entries.find(e => e.id === recordOrId) : recordOrId;
+    
+    // Generate helpful name for confirmation prompt
+    let recordLabel = '';
+    if (entryRecord && entryRecord.data) {
+      const firstVal = Object.values(entryRecord.data).find(v => v && String(v).trim());
+      if (firstVal) recordLabel = ` "${firstVal}"`;
+    }
+
+    if (!confirm(`Are you sure you want to delete this archive record${recordLabel}?`)) return;
+
+    // Handle legacy role deletion
+    if (entryId.startsWith('role_legacy_') && selectedYear) {
+      const idx = parseInt(entryId.replace('role_legacy_', ''), 10);
+      const updatedRoles = [...(selectedYear.roles || [])];
+      if (!isNaN(idx) && idx >= 0 && idx < updatedRoles.length) {
+        updatedRoles.splice(idx, 1);
+        
+        if (!isFirebaseConfigured || !db) {
+          const updatedArchives = archives.map(a => a.id === selectedYear.id ? { ...a, roles: updatedRoles } : a);
+          localStorage.setItem('local_archives', JSON.stringify(updatedArchives));
+          setArchives(updatedArchives);
+          setSelectedYear({ ...selectedYear, roles: updatedRoles });
+        } else {
+          try {
+            await updateDoc(doc(db, 'archives', selectedYear.id), { roles: updatedRoles });
+            setSelectedYear({ ...selectedYear, roles: updatedRoles });
+            await fetchArchives();
+          } catch (e) {
+            console.error("Error deleting legacy role:", e);
+          }
+        }
+        return;
+      }
+    }
 
     if (!isFirebaseConfigured || !db) {
       const updatedEntries = entries.filter(e => e.id !== entryId);
@@ -532,6 +585,52 @@ export default function Archive() {
       await fetchEntries();
     } catch (error) {
       console.error("Error deleting entry:", error);
+      alert("Failed to delete record from database.");
+    }
+  };
+
+  const handleDeleteAllEntriesInFolder = async () => {
+    if (!selectedFolder || !selectedYear) return;
+    const currentList = getCurrentDisplayEntries();
+    if (currentList.length === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ALL ${currentList.length} records in "${selectedFolder.name}" for ${selectedYear.year}? This action cannot be undone.`)) {
+      return;
+    }
+
+    if (!isFirebaseConfigured || !db) {
+      const remainingEntries = entries.filter(e => !(e.archiveYearId === selectedYear.id && e.folderId === selectedFolder.id));
+      localStorage.setItem('local_archive_entries', JSON.stringify(remainingEntries));
+      setEntries(remainingEntries);
+
+      if (selectedFolder.id === 'office_bearers') {
+        const updatedArchives = archives.map(a => a.id === selectedYear.id ? { ...a, roles: [] } : a);
+        localStorage.setItem('local_archives', JSON.stringify(updatedArchives));
+        setArchives(updatedArchives);
+        setSelectedYear({ ...selectedYear, roles: [] });
+      }
+      alert(`Deleted ${currentList.length} records.`);
+      return;
+    }
+
+    try {
+      for (const entry of currentList) {
+        if (entry.id && !entry.id.startsWith('role_legacy_')) {
+          await deleteDoc(doc(db, 'archive_entries', entry.id));
+        }
+      }
+
+      if (selectedFolder.id === 'office_bearers') {
+        await updateDoc(doc(db, 'archives', selectedYear.id), { roles: [] });
+        setSelectedYear({ ...selectedYear, roles: [] });
+        await fetchArchives();
+      }
+
+      await fetchEntries();
+      alert(`Successfully deleted ${currentList.length} records.`);
+    } catch (error) {
+      console.error("Error deleting all entries:", error);
+      alert("Failed to delete all records.");
     }
   };
 
@@ -1212,6 +1311,18 @@ export default function Archive() {
                             </label>
                           )}
 
+                          {/* Admin Clear All Records Button */}
+                          {isAdmin && displayEntries.length > 0 && (
+                            <button 
+                              onClick={handleDeleteAllEntriesInFolder}
+                              className="bg-white border border-red-200 text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest transition font-sans flex items-center gap-1.5 shrink-0 shadow-sm"
+                              title="Delete all records in this folder"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                              Clear All ({displayEntries.length})
+                            </button>
+                          )}
+
                           {/* Admin Add Entry Button */}
                           {isAdmin && (
                             <button 
@@ -1315,7 +1426,7 @@ export default function Archive() {
                                       <Pencil className="w-3.5 h-3.5" />
                                     </button>
                                     <button 
-                                      onClick={() => handleDeleteEntry(record.id)}
+                                      onClick={() => handleDeleteEntry(record)}
                                       className="p-1.5 text-stone-400 hover:text-red-500 transition rounded-lg hover:bg-red-50"
                                       title="Delete Record"
                                     >

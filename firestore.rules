@@ -16,6 +16,7 @@ service cloud.firestore {
       // Allow authenticated user if email matches primary admin or if user document has admin role
       return isAuthenticated() && (
         request.auth.token.email == 'nkhiangte@gmail.com' ||
+        request.auth.token.email == 'kohhranb@gmail.com' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );

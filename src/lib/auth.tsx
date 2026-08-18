@@ -34,13 +34,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const isDefaultAdmin = (email?: string | null) => {
+    if (!email) return false;
+    const normalized = email.toLowerCase().trim();
+    return normalized === 'nkhiangte@gmail.com' || normalized === 'kohhranb@gmail.com';
+  };
+
   const fetchProfile = async (u: User) => {
+    const adminStatus = isDefaultAdmin(u.email);
+    const defaultRole = adminStatus ? 'admin' : 'user';
+
     if (!db) {
-      const defaultRole = u.email === 'nkhiangte@gmail.com' ? 'admin' : 'user';
       setProfile({
         uid: u.uid,
         email: u.email || '',
-        fullName: u.displayName || (u.email === 'nkhiangte@gmail.com' ? 'Admin' : 'User'),
+        fullName: u.displayName || (adminStatus ? 'Admin' : 'User'),
         phoneNumber: u.phoneNumber || '',
         role: defaultRole
       });
@@ -51,17 +59,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data() as UserProfile;
+        // If user is designated admin email, ensure admin role
+        if (adminStatus && data.role !== 'admin') {
+          data.role = 'admin';
+          await setDoc(docRef, { ...data, role: 'admin' }, { merge: true });
+        }
         setProfile(data);
         try {
           localStorage.setItem(`user_profile_${u.uid}`, JSON.stringify(data));
         } catch (e) {}
       } else {
         // If profile doesn't exist, create a default one (e.g., for the initial admin)
-        const defaultRole = u.email === 'nkhiangte@gmail.com' ? 'admin' : 'user';
         const newProfile: UserProfile = {
           uid: u.uid,
           email: u.email || '',
-          fullName: u.displayName || (u.email === 'nkhiangte@gmail.com' ? 'Admin' : 'User'),
+          fullName: u.displayName || (adminStatus ? 'Admin' : 'User'),
           phoneNumber: u.phoneNumber || '',
           role: defaultRole
         };
@@ -80,16 +92,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const cached = localStorage.getItem(`user_profile_${u.uid}`);
         if (cached) {
-          setProfile(JSON.parse(cached));
+          const parsed = JSON.parse(cached);
+          if (adminStatus) parsed.role = 'admin';
+          setProfile(parsed);
           return;
         }
       } catch (e) {}
 
-      const defaultRole = u.email === 'nkhiangte@gmail.com' ? 'admin' : 'user';
       setProfile({
         uid: u.uid,
         email: u.email || '',
-        fullName: u.displayName || (u.email === 'nkhiangte@gmail.com' ? 'Admin' : 'User'),
+        fullName: u.displayName || (adminStatus ? 'Admin' : 'User'),
         phoneNumber: u.phoneNumber || '',
         role: defaultRole
       });
@@ -127,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isAdmin = profile?.role === 'admin' || user?.email === 'nkhiangte@gmail.com';
+  const isAdmin = profile?.role === 'admin' || isDefaultAdmin(user?.email);
 
   return (
     <AuthContext.Provider value={{ user, profile, isAdmin, loading, logout, refreshProfile }}>
