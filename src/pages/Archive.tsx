@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Users, Plus, X, Pencil, Trash2, ChevronRight, Folder, FolderPlus, 
-  Download, Upload, FileSpreadsheet, ExternalLink, Search, Settings, FileText, Check 
+  Download, Upload, FileSpreadsheet, ExternalLink, Search, Settings, FileText, Check,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, setDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
@@ -39,6 +40,10 @@ export default function Archive() {
   const [editingEntry, setEditingEntry] = useState<ArchiveEntry | null>(null);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  
+  // Sorting State (default: descending so latest years are at top)
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Form State: Year
   const [year, setYear] = useState('');
@@ -83,6 +88,14 @@ export default function Archive() {
         console.error("Error fetching archives:", error);
       }
     }
+
+    // Sort archive years descending (latest year at the top, e.g. 2026, 2025... down to oldest)
+    fetchedArchives.sort((a, b) => {
+      const yearA = parseInt(a.year, 10) || 0;
+      const yearB = parseInt(b.year, 10) || 0;
+      if (yearB !== yearA) return yearB - yearA;
+      return b.year.localeCompare(a.year, undefined, { numeric: true });
+    });
 
     setArchives(fetchedArchives);
     if (fetchedArchives.length > 0) {
@@ -759,6 +772,79 @@ export default function Archive() {
     }
   };
 
+  // Helper to extract a 4-digit year or numeric value from a string / any value
+  const extractYearOrNumeric = (val: any): { isYear: boolean; num: number; raw: string } => {
+    if (val === null || val === undefined) return { isYear: false, num: -Infinity, raw: '' };
+    const str = String(val).trim();
+    if (!str) return { isYear: false, num: -Infinity, raw: '' };
+
+    // Look for 4-digit years (e.g. "1992", "2023", "1991-1992", "1991-92")
+    const yearMatch = str.match(/\b(18\d{2}|19\d{2}|20\d{2})\b/);
+    if (yearMatch) {
+      return { isYear: true, num: parseInt(yearMatch[1], 10), raw: str };
+    }
+
+    // Look for date strings
+    const dateParsed = Date.parse(str);
+    if (!isNaN(dateParsed) && str.length >= 8 && (str.includes('-') || str.includes('/'))) {
+      return { isYear: true, num: dateParsed, raw: str };
+    }
+
+    // Look for general pure numbers
+    const cleanedNum = parseFloat(str.replace(/[^0-9.-]/g, ''));
+    if (!isNaN(cleanedNum) && !/[a-zA-Z]/.test(str)) {
+      return { isYear: false, num: cleanedNum, raw: str };
+    }
+
+    return { isYear: false, num: -Infinity, raw: str };
+  };
+
+  // Find year/date field in folder if sortField is not explicitly set
+  const getActiveSortField = (): { fieldId: string; isYear: boolean } | null => {
+    if (sortField) {
+      const fieldObj = selectedFolder?.fields.find(f => f.id === sortField || f.name === sortField);
+      const isYear = fieldObj 
+        ? /^(kum|year|date)$/i.test(fieldObj.name) || fieldObj.name.toLowerCase().includes('kum') || fieldObj.name.toLowerCase().includes('year') || fieldObj.type === 'date' 
+        : false;
+      return { fieldId: sortField, isYear };
+    }
+
+    if (!selectedFolder || selectedFolder.fields.length === 0) return null;
+
+    // 1. Look for explicit field name containing 'kum', 'year', 'date'
+    const yearField = selectedFolder.fields.find(f => {
+      const n = f.name.trim().toLowerCase();
+      const id = f.id.trim().toLowerCase();
+      return (
+        n === 'kum' || n === 'year' || n === 'date' || 
+        id === 'kum' || id === 'year' || id === 'date' ||
+        n.includes('kum') || n.includes('year') || f.type === 'date'
+      );
+    });
+
+    if (yearField) {
+      return { fieldId: yearField.id, isYear: true };
+    }
+
+    // 2. Fallback to the first column (e.g. Kum / Year in imported spreadsheets)
+    return { fieldId: selectedFolder.fields[0].id, isYear: false };
+  };
+
+  const handleSort = (fieldId: string) => {
+    const active = getActiveSortField();
+    if (active?.fieldId === fieldId) {
+      setSortDirection(prev => (prev === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortField(fieldId);
+      const fieldObj = selectedFolder?.fields.find(f => f.id === fieldId);
+      const isYearOrDate = fieldObj 
+        ? /^(kum|year|date)$/i.test(fieldObj.name) || fieldObj.name.toLowerCase().includes('kum') || fieldObj.name.toLowerCase().includes('year') || fieldObj.type === 'date'
+        : false;
+      // Default to 'desc' (latest year at the top) for years/dates, 'asc' for names
+      setSortDirection(isYearOrDate ? 'desc' : 'asc');
+    }
+  };
+
   // --- Display Entry Merger (Backward compatibility for legacy roles) ---
   const getCurrentDisplayEntries = () => {
     if (!selectedFolder || !selectedYear) return [];
@@ -787,6 +873,43 @@ export default function Archive() {
         return Object.values(entry.data).some(val => 
           val && val.toString().toLowerCase().includes(q)
         );
+      });
+    }
+
+    // Apply Sorting: latest years at the top, oldest year at the bottom by default
+    const activeSort = getActiveSortField();
+    if (activeSort) {
+      const targetId = activeSort.fieldId;
+      const targetName = selectedFolder?.fields.find(f => f.id === targetId)?.name || targetId;
+
+      folderEntries.sort((a, b) => {
+        const rawA = a.data[targetId] !== undefined ? a.data[targetId] : a.data[targetName];
+        const rawB = b.data[targetId] !== undefined ? b.data[targetId] : b.data[targetName];
+
+        const parsedA = extractYearOrNumeric(rawA);
+        const parsedB = extractYearOrNumeric(rawB);
+
+        // If both have extracted numbers/years
+        if (parsedA.num !== -Infinity && parsedB.num !== -Infinity) {
+          if (parsedA.num !== parsedB.num) {
+            return sortDirection === 'desc' ? parsedB.num - parsedA.num : parsedA.num - parsedB.num;
+          }
+        }
+
+        // If only one has extracted number/year
+        if (parsedA.num !== -Infinity && parsedB.num === -Infinity) {
+          return sortDirection === 'desc' ? -1 : 1;
+        }
+        if (parsedB.num !== -Infinity && parsedA.num === -Infinity) {
+          return sortDirection === 'desc' ? 1 : -1;
+        }
+
+        // Fallback string locale comparison
+        const strA = parsedA.raw.toLowerCase();
+        const strB = parsedB.raw.toLowerCase();
+        return sortDirection === 'desc'
+          ? strB.localeCompare(strA, undefined, { numeric: true, sensitivity: 'base' })
+          : strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
       });
     }
 
@@ -1111,15 +1234,33 @@ export default function Archive() {
                             <th scope="col" className="px-6 py-4 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest w-12">
                               #
                             </th>
-                            {selectedFolder.fields.map(field => (
-                              <th 
-                                key={field.id} 
-                                scope="col" 
-                                className="px-6 py-4 text-left text-[10px] font-bold text-stone-400 uppercase tracking-widest whitespace-nowrap"
-                              >
-                                {field.name}
-                              </th>
-                            ))}
+                            {selectedFolder.fields.map(field => {
+                              const activeSort = getActiveSortField();
+                              const isSorted = activeSort?.fieldId === field.id;
+
+                              return (
+                                <th 
+                                  key={field.id} 
+                                  scope="col" 
+                                  onClick={() => handleSort(field.id)}
+                                  className="px-6 py-4 text-left text-[10px] font-bold text-stone-500 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-[#5A5A40] transition select-none group"
+                                  title={`Click to sort by ${field.name}`}
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span>{field.name}</span>
+                                    {isSorted ? (
+                                      sortDirection === 'desc' ? (
+                                        <ArrowDown className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                                      ) : (
+                                        <ArrowUp className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                                      )
+                                    ) : (
+                                      <ArrowUpDown className="w-3 h-3 text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                    )}
+                                  </div>
+                                </th>
+                              );
+                            })}
                             {isAdmin && (
                               <th scope="col" className="px-6 py-4 text-right text-[10px] font-bold text-stone-400 uppercase tracking-widest w-24">
                                 Actions
