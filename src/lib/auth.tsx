@@ -11,11 +11,15 @@ export interface UserProfile {
   role: 'admin' | 'user';
 }
 
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   isAdmin: boolean;
   loading: boolean;
+  sessionExpiredNotice: boolean;
+  clearSessionExpiredNotice: () => void;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -25,6 +29,8 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isAdmin: false,
   loading: true,
+  sessionExpiredNotice: false,
+  clearSessionExpiredNotice: () => {},
   logout: async () => {},
   refreshProfile: async () => {},
 });
@@ -33,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
 
   const isDefaultAdmin = (email?: string | null) => {
     if (!email) return false;
@@ -118,15 +125,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
+        try {
+          localStorage.setItem('auth_last_activity', Date.now().toString());
+        } catch (e) {}
         await fetchProfile(u);
       } else {
         setProfile(null);
+        try {
+          localStorage.removeItem('auth_last_activity');
+        } catch (e) {}
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Idle timeout tracking (10 minutes)
+  useEffect(() => {
+    if (!user || !auth) return;
+
+    let lastRecordedActivity = Date.now();
+    try {
+      localStorage.setItem('auth_last_activity', lastRecordedActivity.toString());
+    } catch (e) {}
+
+    const recordUserActivity = () => {
+      const now = Date.now();
+      // Throttle localStorage writes to once every 2 seconds
+      if (now - lastRecordedActivity >= 2000) {
+        lastRecordedActivity = now;
+        try {
+          localStorage.setItem('auth_last_activity', now.toString());
+        } catch (e) {}
+      }
+    };
+
+    const activityEvents = [
+      'mousedown',
+      'mousemove',
+      'keydown',
+      'touchstart',
+      'scroll',
+      'click',
+      'wheel',
+    ];
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, recordUserActivity, { passive: true });
+    });
+
+    const checkIdleTimeout = async () => {
+      try {
+        const storedLastActive = localStorage.getItem('auth_last_activity');
+        const lastActiveTime = storedLastActive ? parseInt(storedLastActive, 10) : lastRecordedActivity;
+        const elapsed = Date.now() - lastActiveTime;
+
+        if (elapsed >= IDLE_TIMEOUT_MS) {
+          console.info(`User idle for ${Math.round(elapsed / 1000)}s (>= 10 minutes). Auto logging out.`);
+          setSessionExpiredNotice(true);
+          try {
+            localStorage.removeItem('auth_last_activity');
+          } catch (e) {}
+          if (auth) {
+            await signOut(auth);
+          }
+        }
+      } catch (err) {
+        console.error('Error during idle timeout check:', err);
+      }
+    };
+
+    // Check periodically every 5 seconds
+    const intervalId = setInterval(checkIdleTimeout, 5000);
+
+    const handleVisibilityOrFocus = () => {
+      checkIdleTimeout();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(intervalId);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, recordUserActivity);
+      });
+      window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [user]);
 
   const refreshProfile = async () => {
     if (user) {
@@ -135,15 +223,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    setSessionExpiredNotice(false);
+    try {
+      localStorage.removeItem('auth_last_activity');
+    } catch (e) {}
     if (auth) {
       await signOut(auth);
     }
   };
 
+  const clearSessionExpiredNotice = () => {
+    setSessionExpiredNotice(false);
+  };
+
   const isAdmin = profile?.role === 'admin' || isDefaultAdmin(user?.email);
 
   return (
-    <AuthContext.Provider value={{ user, profile, isAdmin, loading, logout, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        isAdmin,
+        loading,
+        sessionExpiredNotice,
+        clearSessionExpiredNotice,
+        logout,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

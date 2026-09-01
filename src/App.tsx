@@ -19,6 +19,9 @@ import FellowshipPage from './pages/Fellowship';
 import Users from './pages/Users';
 import Gallery from './pages/Gallery';
 import About from './pages/About';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import ChildSafetyStandards from './pages/ChildSafetyStandards';
+import TermsOfService from './pages/TermsOfService';
 
 export default function App() {
   return (
@@ -39,6 +42,9 @@ export default function App() {
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/users" element={<Users />} />
             <Route path="/about" element={<About />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/child-safety-standards" element={<ChildSafetyStandards />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
           </Routes>
         </Layout>
       </AuthProvider>

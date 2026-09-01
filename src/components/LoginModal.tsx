@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, LogIn, UserPlus } from 'lucide-react';
 import { auth, db, isFirebaseConfigured } from '../lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { Captcha, CaptchaRef } from './Captcha';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -14,6 +15,8 @@ export function LoginModal({ onClose }: LoginModalProps) {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [captchaInput, setCaptchaInput] = useState('');
+  const captchaRef = useRef<CaptchaRef | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -63,6 +66,18 @@ export function LoginModal({ onClose }: LoginModalProps) {
       if (isRegistering) {
         if (!fullName.trim() || !phoneNumber.trim()) {
           setError('Full Name and Phone Number are required.');
+          setLoading(false);
+          return;
+        }
+        if (!captchaInput.trim()) {
+          setError('Please enter the security verification CAPTCHA code.');
+          setLoading(false);
+          return;
+        }
+        if (captchaRef.current && !captchaRef.current.validate(captchaInput)) {
+          setError('Incorrect CAPTCHA code. Please check the image and try again.');
+          captchaRef.current.refresh();
+          setCaptchaInput('');
           setLoading(false);
           return;
         }
@@ -206,6 +221,27 @@ export function LoginModal({ onClose }: LoginModalProps) {
               />
             </div>
 
+            {isRegistering && (
+              <div className="space-y-3 pt-2 border-t border-[#ecece0]/80">
+                <Captcha ref={captchaRef} />
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">
+                    Enter Verification Code
+                  </label>
+                  <input 
+                    type="text" 
+                    value={captchaInput}
+                    onChange={e => setCaptchaInput(e.target.value)}
+                    placeholder="Type the 6 characters from image"
+                    className="w-full p-3 bg-[#fcfaf7] border border-[#ecece0] rounded-xl text-sm font-mono tracking-wider focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                    required
+                    autoComplete="off"
+                    spellCheck="false"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="pt-2 space-y-3">
               <button 
                 type="submit"
@@ -218,6 +254,7 @@ export function LoginModal({ onClose }: LoginModalProps) {
                 type="button"
                 onClick={() => {
                   setIsRegistering(!isRegistering);
+                  setCaptchaInput('');
                   setError('');
                 }}
                 className="w-full text-xs text-stone-500 hover:text-stone-800 font-medium"
