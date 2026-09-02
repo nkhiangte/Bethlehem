@@ -56,3 +56,4 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: alpha # 'alpha' corresponds to Closed Testing in Google Play
           status: completed
+          changesNotSentForReview: true
