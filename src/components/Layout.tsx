@@ -114,7 +114,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-[#f5f5f0] text-[#2d2d2a] font-serif flex">
+    <div className="h-screen bg-[#f5f5f0] text-[#2d2d2a] font-serif flex overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -125,16 +125,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-30 w-64 bg-[#5A5A40] text-white border-r border-[#5A5A40] transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-0",
+        "fixed inset-y-0 left-0 z-30 w-64 bg-[#5A5A40] text-white border-r border-[#5A5A40] transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-0 flex flex-col",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex items-center justify-between h-20 px-6 border-b border-white/10">
+        <div className="flex items-center justify-between h-20 px-6 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-transparent flex items-center justify-center overflow-hidden">
               <img 
                 src="/logo.png" 
                 alt="Bethlehem Kohhran Logo" 
-                className="w-full h-full object-contain rounded-full mix-blend-screen scale-105" 
+                className="w-full h-full object-contain rounded-full scale-105" 
               />
             </div>
             <div>
@@ -146,7 +146,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <X className="w-5 h-5 text-white/70" />
           </button>
         </div>
-        <nav className="p-4 space-y-1 font-sans">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1 font-sans scrollbar-none">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -183,7 +183,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           )}
         </nav>
-        <div className="absolute bottom-0 w-full p-6 border-t border-white/10 font-sans">
+        <div className="w-full p-6 pb-8 border-t border-white/10 font-sans shrink-0 bg-[#5A5A40] z-10">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center italic font-serif">
                {profile ? profile.fullName.charAt(0).toUpperCase() : (user ? user.email?.charAt(0).toUpperCase() : 'G')}
@@ -218,7 +218,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           />
         </div>
 
-        <header className="relative z-10 h-16 bg-white/80 backdrop-blur-md border-b border-[#e0e0d5] flex items-center justify-between px-4 sm:px-8 shrink-0">
+        <header className="sticky top-0 z-20 h-16 bg-white/80 backdrop-blur-md border-b border-[#e0e0d5] flex items-center justify-between px-4 sm:px-8 shrink-0">
           <button 
             className="lg:hidden p-2 -ml-2 text-stone-500 hover:bg-stone-100 rounded-md flex items-center gap-2"
             onClick={() => setSidebarOpen(true)}
