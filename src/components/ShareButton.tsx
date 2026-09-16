@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Share2, 
   Copy, 
@@ -9,13 +9,16 @@ import {
   Mail, 
   Link2, 
   X, 
-  Send 
+  Send,
+  FileText
 } from 'lucide-react';
 import { useBackButton } from '../hooks/useBackButton';
 
 export interface ShareButtonProps {
   title: string;
   summary?: string;
+  content?: string;
+  imageUrl?: string;
   url?: string;
   variant?: 'button' | 'icon' | 'pill' | 'subtle';
   size?: 'sm' | 'md';
@@ -24,9 +27,98 @@ export interface ShareButtonProps {
   showCount?: boolean;
 }
 
+/**
+ * Extracts embedded image from HTML/markdown or uses explicit imageUrl,
+ * falling back to `/logo.png`
+ */
+export function extractThumbnail(content?: string, imageUrl?: string): { url: string; isEmbeddedOrCustom: boolean } {
+  if (imageUrl && imageUrl.trim()) {
+    return { url: imageUrl.trim(), isEmbeddedOrCustom: true };
+  }
+  if (content) {
+    // 1. Check HTML <img> tag with src
+    const imgMatch = content.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (imgMatch && imgMatch[1]) {
+      return { url: imgMatch[1], isEmbeddedOrCustom: true };
+    }
+    // 2. Check Markdown ![alt](url)
+    const mdMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s\)]+|\/[^\s\)]+)\)/i);
+    if (mdMatch && mdMatch[1]) {
+      return { url: mdMatch[1], isEmbeddedOrCustom: true };
+    }
+  }
+  return { url: '/logo.png', isEmbeddedOrCustom: false };
+}
+
+/**
+ * Extracts at least two complete sentences from rich text or markdown.
+ */
+export function extractSentences(content: string = '', minSentences: number = 2): {
+  sentences: string;
+  hasMore: boolean;
+} {
+  if (!content) return { sentences: '', hasMore: false };
+
+  // Convert HTML linebreaks, paragraphs, headings, etc. into natural sentence-ending periods
+  const text = content
+    .replace(/([.!?…])\s*<\/(p|div|h[1-6]|li|blockquote|tr)>/gi, '$1 ')
+    .replace(/<\/(p|div|h[1-6]|li|blockquote|tr)>/gi, '. ')
+    .replace(/<(br|hr)\s*\/?>/gi, '. ')
+    .replace(/<[^>]+>/g, ' ')
+    // HTML entities
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    // Deduplicate punctuation e.g. !. or .. or ?..
+    .replace(/([.!?…])(?:\s*[.!?…])+/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) return { sentences: '', hasMore: false };
+
+  // Match sentences ending in punctuation (. ! ? …) followed by space/end of string, or end of string
+  const sentenceRegex = /([^.!?…]+[.!?…]+)(?:\s+|$)|([^.!?…]+$)/g;
+  const matches: string[] = [];
+  let m;
+  while ((m = sentenceRegex.exec(text)) !== null) {
+    const s = (m[1] || m[2] || '').trim();
+    if (s.length > 0) {
+      matches.push(s);
+    }
+  }
+
+  if (matches.length === 0) {
+    const fallback = text.slice(0, 200).trim();
+    return { sentences: fallback, hasMore: text.length > fallback.length };
+  }
+
+  // Take at least minSentences (2)
+  const count = Math.min(matches.length, Math.max(minSentences, 2));
+  let chosen = matches.slice(0, count);
+
+  // If the 2 sentences are unusually brief (< 65 chars total) and there is a 3rd sentence available, include it
+  const totalLength = chosen.reduce((acc, curr) => acc + curr.length, 0);
+  if (totalLength < 65 && matches.length > count) {
+    chosen.push(matches[count]);
+  }
+
+  const resultSentences = chosen.join(' ').trim();
+  const hasMore = text.length > resultSentences.length + 5;
+
+  return {
+    sentences: resultSentences,
+    hasMore,
+  };
+}
+
 export function ShareButton({
   title,
   summary,
+  content,
+  imageUrl,
   url,
   variant = 'button',
   size = 'md',
@@ -34,11 +126,27 @@ export function ShareButton({
   className = '',
 }: ShareButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
+
+  // Determine effective content
+  const effectiveContent = content || summary || '';
+
+  // Extract thumbnail and sentences
+  const initialThumb = extractThumbnail(effectiveContent, imageUrl);
+  const [thumbnailUrl, setThumbnailUrl] = useState(initialThumb.url);
+  const [isDefaultLogo, setIsDefaultLogo] = useState(!initialThumb.isEmbeddedOrCustom);
+
+  // Update thumbnail if props change
+  useEffect(() => {
+    const extracted = extractThumbnail(effectiveContent, imageUrl);
+    setThumbnailUrl(extracted.url);
+    setIsDefaultLogo(!extracted.isEmbeddedOrCustom);
+  }, [effectiveContent, imageUrl]);
 
   useBackButton(isOpen, () => setIsOpen(false));
 
-  // Determine the full share URL
+  // Determine full share URL
   const getShareUrl = () => {
     if (!url) {
       return typeof window !== 'undefined' ? window.location.href : '';
@@ -52,9 +160,15 @@ export function ShareButton({
 
   const shareUrl = getShareUrl();
 
-  // Create clean plain text from summary if it has HTML
-  const cleanSummary = summary ? summary.replace(/<[^>]*>?/gm, '').trim().slice(0, 160) : '';
+  // Extract at least two sentences
+  const { sentences, hasMore } = extractSentences(effectiveContent, 2);
+  const snippet = sentences ? (hasMore ? `${sentences}...` : sentences) : '';
 
+  // Formatted share message:
+  // "Also share atleast two sentences of the article and then read more and show link"
+  const shareMessage = `${title ? `*${title}*\n\n` : ''}${snippet ? `${snippet}\n\n` : ''}Read more: ${shareUrl}`;
+
+  // Copy URL only
   const handleCopyLink = async () => {
     let success = false;
     if (navigator?.clipboard?.writeText) {
@@ -84,21 +198,56 @@ export function ShareButton({
     }
 
     if (success) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
     }
   };
 
+  // Copy Full Share Text (Title + 2 Sentences + Read More link)
+  const handleCopyFullText = async () => {
+    let success = false;
+    if (navigator?.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(shareMessage);
+        success = true;
+      } catch (e) {
+        success = false;
+      }
+    }
+
+    if (!success && typeof document !== 'undefined') {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareMessage;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } catch (err) {
+        success = false;
+      }
+    }
+
+    if (success) {
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2500);
+    }
+  };
+
+  // Native mobile/device share
   const handleNativeShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
           title,
-          text: cleanSummary ? `${title} - ${cleanSummary}` : title,
+          text: `${snippet ? `${snippet}\n\n` : ''}Read more: ${shareUrl}`,
           url: shareUrl,
         });
       } catch (err: any) {
-        // User aborted or error
         if (err.name !== 'AbortError') {
           console.error('Error sharing:', err);
         }
@@ -106,18 +255,24 @@ export function ShareButton({
     }
   };
 
-  // Pre-formatted social share links
-  const whatsappText = `${title ? `*${title}*\n` : ''}${cleanSummary ? `${cleanSummary}...\n\n` : '\n'}Chhiar chhunzawmna: ${shareUrl}`;
-  const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
-  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(shareUrl)}`;
+  // Social share URLs
+  const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage)}`;
+  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareMessage)}`;
+  
+  // Twitter limit 280 chars
+  const tweetSnippet = snippet.length > 150 ? `${snippet.slice(0, 147)}...` : snippet;
+  const tweetText = `${title ? `${title}\n\n` : ''}${tweetSnippet ? `${tweetSnippet}\n\n` : ''}Read more:`;
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`;
+
   const emailSubject = encodeURIComponent(title || 'Bethlehem Kohhran Article');
-  const emailBody = encodeURIComponent(`${title}\n\n${cleanSummary ? `${cleanSummary}\n\n` : ''}Read here: ${shareUrl}`);
+  const emailBody = encodeURIComponent(
+    `${title ? `${title}\n\n` : ''}${snippet ? `${snippet}\n\n` : ''}Read more: ${shareUrl}`
+  );
   const mailtoUrl = `mailto:?subject=${emailSubject}&body=${emailBody}`;
 
   const hasNativeShare = typeof navigator !== 'undefined' && !!navigator.share;
 
-  // Render button trigger based on variant
+  // Render trigger button based on variant
   const renderTrigger = () => {
     if (variant === 'icon') {
       return (
@@ -186,7 +341,7 @@ export function ShareButton({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-5 border-b border-[#ecece0] flex items-center justify-between bg-[#fcfaf7]">
+            <div className="p-4 sm:p-5 border-b border-[#ecece0] flex items-center justify-between bg-[#fcfaf7]">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-[#5A5A40]/10 flex items-center justify-center text-[#5A5A40]">
                   <Share2 className="w-4 h-4" />
@@ -210,23 +365,52 @@ export function ShareButton({
               </button>
             </div>
 
-            {/* Article Preview Card */}
-            <div className="p-5 border-b border-[#ecece0] bg-stone-50/50">
-              <span className="text-[9px] uppercase font-bold tracking-widest text-[#5A5A40] block mb-1">
-                Selected Article
-              </span>
-              <h4 className="text-sm font-serif font-medium text-stone-800 line-clamp-2 leading-snug">
-                {title}
-              </h4>
-              {cleanSummary && (
-                <p className="text-xs text-stone-500 line-clamp-2 mt-1 leading-relaxed">
-                  {cleanSummary}
-                </p>
-              )}
+            {/* Article Preview Card with Thumbnail */}
+            <div className="p-4 sm:p-5 border-b border-[#ecece0] bg-stone-50/50">
+              <div className="flex gap-3.5 sm:gap-4 items-start">
+                {/* Thumbnail Image: embedded image if present, otherwise logo */}
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white border border-[#ecece0] shrink-0 flex items-center justify-center p-1 shadow-2xs">
+                  <img
+                    src={thumbnailUrl}
+                    alt={title || 'Bethlehem Kohhran'}
+                    className={`w-full h-full rounded-xl transition-all duration-300 ${
+                      isDefaultLogo ? 'object-contain p-1' : 'object-cover'
+                    }`}
+                    referrerPolicy="no-referrer"
+                    onError={() => {
+                      if (thumbnailUrl !== '/logo.png') {
+                        setThumbnailUrl('/logo.png');
+                        setIsDefaultLogo(true);
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Text excerpt preview */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-[9px] uppercase font-bold tracking-widest text-[#5A5A40] block mb-0.5">
+                    {isDefaultLogo ? 'Bethlehem Kohhran' : 'Article Thumbnail'}
+                  </span>
+                  <h4 className="text-sm font-serif font-semibold text-stone-900 line-clamp-2 leading-snug">
+                    {title}
+                  </h4>
+                  {snippet && (
+                    <p className="text-xs text-stone-600 line-clamp-2 mt-1 leading-relaxed font-sans">
+                      {snippet}
+                    </p>
+                  )}
+                  <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-[#5A5A40]">
+                    <span>Read more:</span>
+                    <span className="text-stone-400 font-mono text-[10px] truncate max-w-[120px] sm:max-w-[180px]">
+                      {shareUrl}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Share Destinations Grid */}
-            <div className="p-5 space-y-4">
+            <div className="p-4 sm:p-5 space-y-4">
               <span className="text-[10px] uppercase font-bold tracking-widest text-stone-400 block">
                 Share To Social Media & Apps
               </span>
@@ -295,11 +479,35 @@ export function ShareButton({
                 </button>
               )}
 
-              {/* Copy Link Section */}
-              <div className="pt-2">
-                <span className="text-[10px] uppercase font-bold tracking-widest text-stone-400 block mb-1.5">
-                  Shareable Link
-                </span>
+              {/* Copy Links / Message Section */}
+              <div className="pt-2 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-stone-400 block">
+                    Copy To Clipboard
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyFullText}
+                    className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider transition px-2 py-1 rounded-md ${
+                      copiedText 
+                        ? 'text-emerald-700 bg-emerald-50' 
+                        : 'text-[#5A5A40] hover:bg-[#5A5A40]/10'
+                    }`}
+                  >
+                    {copiedText ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        <span>Text & Link Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-3 h-3" />
+                        <span>Copy Text & Link</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-2 bg-[#fcfaf7] border border-[#ecece0] rounded-xl p-1.5 pl-3">
                   <Link2 className="w-4 h-4 text-stone-400 shrink-0" />
                   <input
@@ -312,12 +520,12 @@ export function ShareButton({
                     type="button"
                     onClick={handleCopyLink}
                     className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition shrink-0 ${
-                      copied 
+                      copiedLink 
                         ? 'bg-emerald-600 text-white' 
                         : 'bg-[#5A5A40] hover:bg-[#4a4a35] text-white'
                     }`}
                   >
-                    {copied ? (
+                    {copiedLink ? (
                       <>
                         <Check className="w-3.5 h-3.5" />
                         <span>Copied!</span>
@@ -325,7 +533,7 @@ export function ShareButton({
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        <span>Copy</span>
+                        <span>Copy Link</span>
                       </>
                     )}
                   </button>
@@ -336,7 +544,7 @@ export function ShareButton({
             {/* Footer */}
             <div className="p-4 bg-[#fcfaf7] border-t border-[#ecece0] flex items-center justify-between">
               <span className="text-[11px] text-stone-400 italic">
-                Share with church members & family
+                Bethlehem Kohhran News & Updates
               </span>
               <button
                 type="button"

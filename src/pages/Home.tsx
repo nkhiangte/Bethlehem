@@ -590,6 +590,7 @@ export default function Home() {
                       <ShareButton
                         title={article.title}
                         summary={article.content}
+                        imageUrl={article.imageUrl}
                         url={`/?article=${article.id}`}
                         variant="icon"
                       />
@@ -677,6 +678,7 @@ export default function Home() {
                         <ShareButton
                           title={article.title}
                           summary={article.content}
+                          imageUrl={article.imageUrl}
                           url={`/?article=${article.id}`}
                           variant="pill"
                           buttonText="Share"
@@ -687,6 +689,7 @@ export default function Home() {
                         <ShareButton
                           title={article.title}
                           summary={article.content}
+                          imageUrl={article.imageUrl}
                           url={`/?article=${article.id}`}
                           variant="pill"
                           buttonText="Share"
@@ -756,6 +759,7 @@ export default function Home() {
                 <ShareButton
                   title={viewingArticle.title}
                   summary={viewingArticle.content}
+                  imageUrl={viewingArticle.imageUrl}
                   url={`/?article=${viewingArticle.id}`}
                   variant="pill"
                   buttonText="Share"
@@ -794,6 +798,7 @@ export default function Home() {
               <ShareButton
                 title={viewingArticle.title}
                 summary={viewingArticle.content}
+                imageUrl={viewingArticle.imageUrl}
                 url={`/?article=${viewingArticle.id}`}
                 variant="button"
                 buttonText="Share Article"
