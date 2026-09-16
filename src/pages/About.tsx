@@ -7,6 +7,7 @@ import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { useBackButton } from '../hooks/useBackButton';
 import { uploadImageToImgbb } from '../lib/imgbb';
+import { ShareButton } from '../components/ShareButton';
 
 interface AboutArticle {
   title: string;
@@ -280,7 +281,14 @@ export default function About() {
         </div>
       ) : article ? (
         <article className="bg-white rounded-[32px] p-8 sm:p-12 shadow-sm border border-[#e0e0d5] relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 flex gap-2">
+          <div className="absolute top-0 right-0 p-6 sm:p-8 flex items-center gap-2 z-10">
+            <ShareButton
+              title={article.title}
+              summary={article.content}
+              url="/about"
+              variant="button"
+              buttonText="Share"
+            />
             {isAdmin && (
               <button 
                 onClick={handleStartEdit}
@@ -296,7 +304,7 @@ export default function About() {
               <History className="w-4 h-4" />
               <span>Church History Article</span>
             </div>
-            <h2 className="text-3xl font-serif text-[#2d2d2a] mb-3 pr-12 leading-tight">{article.title}</h2>
+            <h2 className="text-3xl font-serif text-[#2d2d2a] mb-3 pr-24 leading-tight">{article.title}</h2>
             <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-stone-400 font-sans">
               <span>Last updated: {formatDate(article.lastUpdated)}</span>
               {article.updatedBy && (
@@ -311,6 +319,17 @@ export default function About() {
             className="prose prose-stone max-w-none font-sans text-[#2d2d2a] text-sm prose-headings:font-serif prose-headings:font-normal prose-headings:text-[#5A5A40] prose-h3:text-lg prose-ul:list-disc prose-ul:pl-6 prose-strong:text-stone-800"
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
           />
+
+          <div className="mt-8 pt-6 border-t border-[#ecece0] flex flex-wrap items-center justify-between gap-4 font-sans">
+            <span className="text-xs text-stone-400 italic">Bethlehem Kohhran Chanchin Tawi</span>
+            <ShareButton
+              title={article.title}
+              summary={article.content}
+              url="/about"
+              variant="pill"
+              buttonText="Share History"
+            />
+          </div>
         </article>
       ) : null}
     </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShieldAlert, ShieldCheck, Mail, MapPin, AlertTriangle, FileCheck, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ShareButton } from '../components/ShareButton';
 
 export default function ChildSafetyStandards() {
   const lastUpdated = "September 1, 2026";
@@ -9,18 +10,30 @@ export default function ChildSafetyStandards() {
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       {/* Header Banner */}
       <div className="bg-white rounded-2xl p-6 sm:p-10 border border-[#e0e0d5] shadow-sm">
-        <div className="flex items-center gap-2.5 text-[#5A5A40] mb-3">
-          <ShieldAlert className="w-6 h-6 text-red-600" />
-          <span className="text-xs uppercase font-bold tracking-widest font-sans text-stone-600">
-            Google Play Child Safety Standards Compliance
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5 text-[#5A5A40] mb-3">
+              <ShieldAlert className="w-6 h-6 text-red-600" />
+              <span className="text-xs uppercase font-bold tracking-widest font-sans text-stone-600">
+                Google Play Child Safety Standards Compliance
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-serif text-[#2d2d2a] mb-2">
+              Child Safety Standards & CSAM / CSAE Prevention Policy
+            </h1>
+            <p className="text-xs text-stone-500 font-sans">
+              Application & Developer: <strong>Bethlehem Kohhran</strong> | Effective Date: <strong>{lastUpdated}</strong>
+            </p>
+          </div>
+          <ShareButton
+            title="Child Safety Standards - Bethlehem Kohhran"
+            summary="Child Safety Standards and CSAM / CSAE Prevention Policy for Bethlehem Kohhran."
+            url="/child-safety-standards"
+            variant="button"
+            buttonText="Share"
+            className="shrink-0"
+          />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-serif text-[#2d2d2a] mb-2">
-          Child Safety Standards & CSAM / CSAE Prevention Policy
-        </h1>
-        <p className="text-xs text-stone-500 font-sans">
-          Application & Developer: <strong>Bethlehem Kohhran</strong> | Effective Date: <strong>{lastUpdated}</strong>
-        </p>
       </div>
 
       {/* Main Content */}

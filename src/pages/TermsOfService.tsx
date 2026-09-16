@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileText, Shield, Mail, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ShareButton } from '../components/ShareButton';
 
 export default function TermsOfService() {
   const lastUpdated = "September 1, 2026";
@@ -9,16 +10,28 @@ export default function TermsOfService() {
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       {/* Header Banner */}
       <div className="bg-white rounded-2xl p-6 sm:p-10 border border-[#e0e0d5] shadow-sm">
-        <div className="flex items-center gap-2.5 text-[#5A5A40] mb-3">
-          <FileText className="w-6 h-6" />
-          <span className="text-xs uppercase font-bold tracking-widest font-sans">Legal Terms</span>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5 text-[#5A5A40] mb-3">
+              <FileText className="w-6 h-6" />
+              <span className="text-xs uppercase font-bold tracking-widest font-sans">Legal Terms</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-serif text-[#2d2d2a] mb-2">
+              Terms of Service for Bethlehem Kohhran
+            </h1>
+            <p className="text-xs text-stone-500 font-sans">
+              Effective Date & Last Updated: <strong>{lastUpdated}</strong>
+            </p>
+          </div>
+          <ShareButton
+            title="Terms of Service - Bethlehem Kohhran"
+            summary="Official Terms of Service for Bethlehem Kohhran mobile app and web services."
+            url="/terms-of-service"
+            variant="button"
+            buttonText="Share"
+            className="shrink-0"
+          />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-serif text-[#2d2d2a] mb-2">
-          Terms of Service for Bethlehem Kohhran
-        </h1>
-        <p className="text-xs text-stone-500 font-sans">
-          Effective Date & Last Updated: <strong>{lastUpdated}</strong>
-        </p>
       </div>
 
       {/* Main Content */}

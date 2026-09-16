@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
@@ -7,8 +8,10 @@ import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader
 import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { useBackButton } from '../hooks/useBackButton';
+import { ShareButton } from '../components/ShareButton';
 
 export default function Home() {
+  const [searchParams] = useSearchParams();
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -27,6 +30,17 @@ export default function Home() {
   const [viewingArticle, setViewingArticle] = useState<NewsArticle | null>(null);
   
   useBackButton(!!viewingArticle, () => setViewingArticle(null));
+
+  // Deep linking to shared article via ?article=<id>
+  useEffect(() => {
+    const articleIdParam = searchParams.get('article');
+    if (articleIdParam && news.length > 0) {
+      const matched = news.find(n => n.id === articleIdParam);
+      if (matched) {
+        setViewingArticle(matched);
+      }
+    }
+  }, [news, searchParams]);
 
   // Edit post state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -573,6 +587,12 @@ export default function Home() {
                 return (
                   <article key={article.id} className="bg-white rounded-[32px] p-6 sm:p-10 shadow-sm border border-[#e0e0d5] relative overflow-hidden transition-all">
                     <div className="absolute top-0 right-0 p-4 sm:p-6 flex items-center gap-1 z-10">
+                      <ShareButton
+                        title={article.title}
+                        summary={article.content}
+                        url={`/?article=${article.id}`}
+                        variant="icon"
+                      />
                       {isAdmin && (
                         <>
                           <button 
@@ -624,33 +644,53 @@ export default function Home() {
                       )}
                     </div>
 
-                    {longPost && (
+                    {longPost ? (
                       <div className="mt-4 pt-3 border-t border-[#ecece0] flex flex-wrap items-center justify-between gap-2">
-                        <button
-                          onClick={() => toggleExpand(article.id)}
-                          className="inline-flex items-center gap-2 bg-[#5A5A40] hover:bg-[#4a4a35] text-white px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition shadow-xs font-sans"
-                        >
-                          {isExpanded ? (
-                            <>
-                              <span>Tawm leh rawh / Show Less</span>
-                              <ChevronUp className="w-4 h-4" />
-                            </>
-                          ) : (
-                            <>
-                              <span>Chhiar chhunzawm rawh / Read More</span>
-                              <ChevronDown className="w-4 h-4" />
-                            </>
-                          )}
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => toggleExpand(article.id)}
+                            className="inline-flex items-center gap-2 bg-[#5A5A40] hover:bg-[#4a4a35] text-white px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition shadow-xs font-sans"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <span>Tawm leh rawh / Show Less</span>
+                                <ChevronUp className="w-4 h-4" />
+                              </>
+                            ) : (
+                              <>
+                                <span>Chhiar chhunzawm rawh / Read More</span>
+                                <ChevronDown className="w-4 h-4" />
+                              </>
+                            )}
+                          </button>
 
-                        <button
-                          onClick={() => setViewingArticle(article)}
-                          className="inline-flex items-center gap-1.5 text-stone-600 hover:text-[#5A5A40] bg-stone-100 hover:bg-stone-200/80 px-3.5 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition font-sans"
-                          title="Open full reader view"
-                        >
-                          <BookOpen className="w-3.5 h-3.5" />
-                          <span>Full View</span>
-                        </button>
+                          <button
+                            onClick={() => setViewingArticle(article)}
+                            className="inline-flex items-center gap-1.5 text-stone-600 hover:text-[#5A5A40] bg-stone-100 hover:bg-stone-200/80 px-3.5 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition font-sans"
+                            title="Open full reader view"
+                          >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span>Full View</span>
+                          </button>
+                        </div>
+
+                        <ShareButton
+                          title={article.title}
+                          summary={article.content}
+                          url={`/?article=${article.id}`}
+                          variant="pill"
+                          buttonText="Share"
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-4 pt-3 border-t border-[#ecece0] flex items-center justify-end">
+                        <ShareButton
+                          title={article.title}
+                          summary={article.content}
+                          url={`/?article=${article.id}`}
+                          variant="pill"
+                          buttonText="Share"
+                        />
                       </div>
                     )}
                   </article>
@@ -712,12 +752,22 @@ export default function Home() {
                   {viewingArticle.title}
                 </h2>
               </div>
-              <button 
-                onClick={() => setViewingArticle(null)}
-                className="p-2 hover:bg-stone-200/60 text-stone-500 rounded-full transition shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <ShareButton
+                  title={viewingArticle.title}
+                  summary={viewingArticle.content}
+                  url={`/?article=${viewingArticle.id}`}
+                  variant="pill"
+                  buttonText="Share"
+                />
+                <button 
+                  onClick={() => setViewingArticle(null)}
+                  className="p-2 hover:bg-stone-200/60 text-stone-500 rounded-full transition shrink-0"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Body Content */}
@@ -741,7 +791,13 @@ export default function Home() {
 
             {/* Footer */}
             <div className="p-4 border-t border-[#ecece0] bg-[#fcfaf7] flex items-center justify-between">
-              <span className="text-xs text-stone-400 font-sans italic">Bethlehem Kohhran News</span>
+              <ShareButton
+                title={viewingArticle.title}
+                summary={viewingArticle.content}
+                url={`/?article=${viewingArticle.id}`}
+                variant="button"
+                buttonText="Share Article"
+              />
               <button
                 onClick={() => setViewingArticle(null)}
                 className="bg-[#5A5A40] text-white px-5 py-2 rounded-xl text-xs uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans font-bold"

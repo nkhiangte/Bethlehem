@@ -4,6 +4,7 @@ import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { InkhawmProgramme, PROGRAM_TITLES, DEFAULT_PROGRAM_ROLES, TawngtaiHruaituMonth, TawngtaiHruaituDay } from '../types';
 import { useAuth } from '../lib/auth';
+import { ShareButton } from '../components/ShareButton';
 
 export default function Programs() {
   const { isAdmin } = useAuth();
@@ -311,16 +312,25 @@ export default function Programs() {
                     </span>
                     <h2 className="text-xl font-serif italic text-[#5A5A40]">{program.title}</h2>
                   </div>
-                  {isAdmin && (
-                    <div className="flex gap-2 mt-4 md:mt-0">
-                      <button onClick={() => handleOpenInkhawmModal(program)} className="p-2 text-stone-400 hover:text-[#5A5A40] bg-[#fcfaf7] border border-[#ecece0] rounded-xl transition">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDeleteInkhawm(program.id)} className="p-2 text-red-400 hover:text-red-600 bg-red-50 border border-red-100 rounded-xl transition">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 mt-4 md:mt-0">
+                    <ShareButton
+                      title={`Bethlehem Kohhran Programme: ${program.title} (${program.date})`}
+                      summary={`Hun: ${program.time}. ${program.roles.map(r => `${r.role}: ${r.value || 'TBA'}`).join(', ')}`}
+                      url="/programs"
+                      variant="pill"
+                      buttonText="Share"
+                    />
+                    {isAdmin && (
+                      <div className="flex gap-2">
+                        <button onClick={() => handleOpenInkhawmModal(program)} className="p-2 text-stone-400 hover:text-[#5A5A40] bg-[#fcfaf7] border border-[#ecece0] rounded-xl transition">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteInkhawm(program.id)} className="p-2 text-red-400 hover:text-red-600 bg-red-50 border border-red-100 rounded-xl transition">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4 text-sm font-sans text-[#2d2d2a] bg-[#fcfaf7] border border-[#ecece0] p-4 rounded-2xl">
@@ -399,7 +409,16 @@ export default function Programs() {
 
           {selectedMonthData ? (
             <div className="bg-white border border-[#e0e0d5] rounded-3xl overflow-hidden shadow-sm">
-              <div className="p-6 text-center border-b border-[#e0e0d5] bg-[#fcfaf7]">
+              <div className="p-6 text-center border-b border-[#e0e0d5] bg-[#fcfaf7] relative">
+                <div className="sm:absolute sm:right-6 sm:top-6 flex justify-center mb-3 sm:mb-0">
+                  <ShareButton
+                    title={`Ṭawngṭai Inkhawm Hruaitu - ${formatMonthName(selectedMonthData.yearMonth)}`}
+                    summary={`Bethlehem Kohhran ${formatMonthName(selectedMonthData.yearMonth)} ṭawngṭai inkhawm hruaitute ruahmanna.`}
+                    url="/programs"
+                    variant="pill"
+                    buttonText="Share Schedule"
+                  />
+                </div>
                 <h2 className="text-xl sm:text-2xl font-serif italic text-[#5A5A40] uppercase tracking-wide">
                   Ṭawngṭai Inkhawm Hruaitu
                 </h2>
