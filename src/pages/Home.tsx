@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { db, isFirebaseConfigured } from '../lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, limit, where } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
-import { NewsArticle } from '../types';
+import { NewsArticle, WeeklySchedulePackage } from '../types';
 import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save, ChevronDown, ChevronUp, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
@@ -50,6 +50,9 @@ export default function Home() {
   const [uploadingEditFeatured, setUploadingEditFeatured] = useState(false);
   const [uploadingEditInline, setUploadingEditInline] = useState(false);
 
+  // Latest Weekly Schedule Package
+  const [latestWeeklyPackage, setLatestWeeklyPackage] = useState<WeeklySchedulePackage | null>(null);
+
   const { isAdmin } = useAuth();
 
   const quillRef = useRef<any>(null);
@@ -60,7 +63,47 @@ export default function Home() {
 
   useEffect(() => {
     fetchNews();
+    fetchLatestWeeklyPackage();
   }, []);
+
+  const fetchLatestWeeklyPackage = async () => {
+    if (!isFirebaseConfigured || !db) {
+      const local = localStorage.getItem('local_weekly_schedules');
+      if (local) {
+        try {
+          const list: WeeklySchedulePackage[] = JSON.parse(local);
+          if (list.length > 0) setLatestWeeklyPackage(list[0]);
+        } catch (e) {}
+      }
+      return;
+    }
+    try {
+      const q = query(collection(db, 'programs'), where('isWeeklyPackage', '==', true));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeeklySchedulePackage));
+        list.sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
+        setLatestWeeklyPackage(list[0]);
+      } else {
+        const local = localStorage.getItem('local_weekly_schedules');
+        if (local) {
+          try {
+            const list: WeeklySchedulePackage[] = JSON.parse(local);
+            if (list.length > 0) setLatestWeeklyPackage(list[0]);
+          } catch (e) {}
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching latest weekly schedule:", e);
+      const local = localStorage.getItem('local_weekly_schedules');
+      if (local) {
+        try {
+          const list: WeeklySchedulePackage[] = JSON.parse(local);
+          if (list.length > 0) setLatestWeeklyPackage(list[0]);
+        } catch (err) {}
+      }
+    }
+  };
 
   const fetchNews = async () => {
     if (!isFirebaseConfigured || !db) {
@@ -306,6 +349,52 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
+      {/* Weekly Church Schedule Banner */}
+      {latestWeeklyPackage && (
+        <div className="bg-gradient-to-r from-[#fcfaf7] to-white rounded-3xl border border-[#e0e0d5] p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="p-3 bg-[#5A5A40]/10 text-[#5A5A40] rounded-2xl shrink-0 mt-0.5">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-[#5A5A40] text-white px-2.5 py-0.5 rounded-full font-sans">
+                  Tunkar Kohhran Inkhawm Programme
+                </span>
+                <span className="text-xs text-stone-500 font-sans font-semibold">
+                  Nilai Zan – Pathianni Zan
+                </span>
+              </div>
+              <h2 className="text-lg font-serif font-semibold text-[#2d2d2a]">
+                {latestWeeklyPackage.title}
+              </h2>
+              <p className="text-xs text-stone-500 font-sans mt-0.5">
+                🗓️ {latestWeeklyPackage.startDate} atanga {latestWeeklyPackage.endDate} inkhawm ruahmanna kimchang.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+            <ShareButton
+              title={`Bethlehem Kohhran: ${latestWeeklyPackage.title}`}
+              headerTitle="Share 1-Week Schedule"
+              customMessage={`*BETHLEHEM KOHHRAN - TUNKAR KOHHRAN INKHAWM PROGRAMME*\n🗓️ ${latestWeeklyPackage.startDate} – ${latestWeeklyPackage.endDate} (Nilai Zan – Pathianni Zan)\n\nRead more & view full schedule:\n${typeof window !== 'undefined' ? window.location.origin : ''}/programs?week=${latestWeeklyPackage.id}`}
+              url={`/programs?week=${latestWeeklyPackage.id}`}
+              variant="pill"
+              buttonText="Share 1-Week Link"
+              className="bg-[#5A5A40] text-white hover:bg-[#4a4a35] hover:text-white"
+            />
+            <Link
+              to={`/programs?week=${latestWeeklyPackage.id}`}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs uppercase font-bold tracking-wider text-stone-700 hover:text-[#5A5A40] bg-stone-100 hover:bg-stone-200 transition font-sans"
+            >
+              <span>View Schedule</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight uppercase">Latest News</h1>

@@ -3,6 +3,7 @@ import { Calendar, Users, FileText, UserCircle2 } from 'lucide-react';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { Member, Upa, InkhawmProgramme, ChurchRecord } from '../types';
+import { formatTimeDisplay } from '../lib/utils';
 
 export default function Dashboard() {
   const [memberCount, setMemberCount] = useState(0);
@@ -121,7 +122,7 @@ export default function Dashboard() {
             {upcomingPrograms.map((program) => (
               <div key={program.id} className="p-4 bg-[#fcfaf7] border border-[#ecece0] rounded-2xl flex flex-col sm:flex-row justify-between">
                 <div className="flex-1">
-                  <p className="text-[10px] text-stone-400 uppercase font-bold">{program.date} • {program.time}</p>
+                  <p className="text-[10px] text-stone-400 uppercase font-bold">{program.date} • {formatTimeDisplay(program.time)}</p>
                   <h4 className="text-lg font-serif italic text-[#5A5A40] mt-1 mb-2">{program.title}</h4>
                   <div className="space-y-1">
                     {program.roles.map((r, i) => (

@@ -18,6 +18,9 @@ export interface ShareButtonProps {
   title: string;
   summary?: string;
   content?: string;
+  customMessage?: string;
+  customSnippet?: string;
+  headerTitle?: string;
   imageUrl?: string;
   url?: string;
   variant?: 'button' | 'icon' | 'pill' | 'subtle';
@@ -118,6 +121,9 @@ export function ShareButton({
   title,
   summary,
   content,
+  customMessage,
+  customSnippet,
+  headerTitle,
   imageUrl,
   url,
   variant = 'button',
@@ -160,13 +166,15 @@ export function ShareButton({
 
   const shareUrl = getShareUrl();
 
-  // Extract at least two sentences
+  // Extract at least two sentences or use custom snippet
   const { sentences, hasMore } = extractSentences(effectiveContent, 2);
-  const snippet = sentences ? (hasMore ? `${sentences}...` : sentences) : '';
+  const snippet = customSnippet !== undefined 
+    ? customSnippet 
+    : (sentences ? (hasMore ? `${sentences}...` : sentences) : '');
 
   // Formatted share message:
-  // "Also share atleast two sentences of the article and then read more and show link"
-  const shareMessage = `${title ? `*${title}*\n\n` : ''}${snippet ? `${snippet}\n\n` : ''}Read more: ${shareUrl}`;
+  // Can use customMessage directly if provided (e.g. for structured weekly bulletin schedule)
+  const shareMessage = customMessage || `${title ? `*${title}*\n\n` : ''}${snippet ? `${snippet}\n\n` : ''}Read more: ${shareUrl}`;
 
   // Copy URL only
   const handleCopyLink = async () => {
@@ -348,7 +356,7 @@ export function ShareButton({
                 </div>
                 <div>
                   <h3 className="text-base font-serif font-semibold text-[#2d2d2a] leading-tight">
-                    Share Article
+                    {headerTitle || 'Share Article'}
                   </h3>
                   <p className="text-[10px] text-stone-400 uppercase font-bold tracking-widest mt-0.5">
                     Bethlehem Kohhran
@@ -389,13 +397,13 @@ export function ShareButton({
                 {/* Text excerpt preview */}
                 <div className="flex-1 min-w-0">
                   <span className="text-[9px] uppercase font-bold tracking-widest text-[#5A5A40] block mb-0.5">
-                    {isDefaultLogo ? 'Bethlehem Kohhran' : 'Article Thumbnail'}
+                    {headerTitle ? headerTitle : (isDefaultLogo ? 'Bethlehem Kohhran' : 'Article Thumbnail')}
                   </span>
                   <h4 className="text-sm font-serif font-semibold text-stone-900 line-clamp-2 leading-snug">
                     {title}
                   </h4>
                   {snippet && (
-                    <p className="text-xs text-stone-600 line-clamp-2 mt-1 leading-relaxed font-sans">
+                    <p className="text-xs text-stone-600 line-clamp-3 mt-1 leading-relaxed font-sans whitespace-pre-line">
                       {snippet}
                     </p>
                   )}

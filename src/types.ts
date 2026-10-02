@@ -102,7 +102,82 @@ export interface InkhawmProgramme {
   date: string;
   time: string;
   roles: ProgramRole[];
+  packageId?: string; // Optional link to parent weekly schedule package
 }
+
+export interface WeeklyServiceItem {
+  id: string;
+  dayShort: string; // e.g. 'Nilai Zan', 'Inrinni Zan', 'Pathianni Chawhma', 'Pathianni Chawhnu', 'Pathianni Zan'
+  dayTitle: string; // e.g. 'Nilai Zan (Wednesday Night)'
+  date: string; // YYYY-MM-DD
+  time: string; // e.g. '19:00' or '7:00 PM'
+  roles: ProgramRole[];
+  notes?: string;
+}
+
+export interface WeeklySchedulePackage {
+  id: string;
+  isWeeklyPackage?: boolean;
+  title: string; // e.g. "Tunkar Kohhran Inkhawm Programme (14 - 18 Oct, 2026)"
+  startDate: string; // Wednesday (Nilai Zan) date
+  endDate: string; // Sunday (Pathianni Zan) date
+  services: WeeklyServiceItem[];
+  announcements?: string; // Optional general notices (e.g. Pangpar khawitute, Thawhlawm khawntute)
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const STANDARD_WEEKLY_SERVICES_TEMPLATE: Omit<WeeklyServiceItem, 'id' | 'date'>[] = [
+  {
+    dayShort: 'Nilai Zan',
+    dayTitle: 'Nilai Zan (Wednesday Night)',
+    time: '19:00',
+    roles: [
+      { role: 'Hruaitu', value: '' },
+      { role: 'Tantu', value: '' },
+      { role: 'Thupui Hawngtu', value: '' },
+      { role: 'Thupui', value: '' }
+    ]
+  },
+  {
+    dayShort: 'Inrinni Zan',
+    dayTitle: 'Inrinni Zan (Saturday Night)',
+    time: '19:00',
+    roles: [
+      { role: 'Hruaitu', value: '' },
+      { role: 'Tantu', value: '' },
+      { role: 'Thuhriltu', value: '' }
+    ]
+  },
+  {
+    dayShort: 'Pathianni Chawhma',
+    dayTitle: 'Pathianni Chawhma (Sunday School)',
+    time: '10:00',
+    roles: [
+      { role: 'Tantu', value: '' },
+      { role: 'Zirlai', value: '' },
+      { role: 'Zirtirtu', value: '' }
+    ]
+  },
+  {
+    dayShort: 'Pathianni Chawhnu',
+    dayTitle: 'Pathianni Chawhnu (Sunday Afternoon)',
+    time: '13:30',
+    roles: [
+      { role: 'Tantu', value: '' },
+      { role: 'Thuhriltu', value: '' }
+    ]
+  },
+  {
+    dayShort: 'Pathianni Zan',
+    dayTitle: 'Pathianni Zan (Sunday Night)',
+    time: '19:00',
+    roles: [
+      { role: 'Thuhriltu', value: '' },
+      { role: 'Hruaitu', value: '' }
+    ]
+  }
+];
 
 export const DEFAULT_PROGRAM_ROLES: Record<string, string[]> = {
   'Pathianni (Sunday) Chawhma': ['Tantu', 'Zirlai', 'Zirtirtu'],

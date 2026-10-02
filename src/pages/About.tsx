@@ -183,7 +183,12 @@ export default function About() {
 
   const formatDate = (isoString: string) => {
     const d = new Date(isoString);
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const datePart = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12 || 12;
+    return `${datePart}, ${hours}:${minutes} ${ampm}`;
   };
 
   return (
