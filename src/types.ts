@@ -102,13 +102,14 @@ export interface InkhawmProgramme {
   date: string;
   time: string;
   roles: ProgramRole[];
+  notes?: string;
   packageId?: string; // Optional link to parent weekly schedule package
 }
 
 export interface WeeklyServiceItem {
   id: string;
-  dayShort: string; // e.g. 'Nilai Zan', 'Inrinni Zan', 'Pathianni Chawhma', 'Pathianni Chawhnu', 'Pathianni Zan'
-  dayTitle: string; // e.g. 'Nilai Zan (Wednesday Night)'
+  dayShort: string; // e.g. 'Nilaini Zan', 'Inrinni Zan', 'Pathianni Chawhma', 'Pathianni Chawhnu', 'Pathianni Zan'
+  dayTitle: string; // e.g. 'Nilaini Zan (Wednesday Night)'
   date: string; // YYYY-MM-DD
   time: string; // e.g. '19:00' or '7:00 PM'
   roles: ProgramRole[];
@@ -119,7 +120,7 @@ export interface WeeklySchedulePackage {
   id: string;
   isWeeklyPackage?: boolean;
   title: string; // e.g. "Tunkar Kohhran Inkhawm Programme (14 - 18 Oct, 2026)"
-  startDate: string; // Wednesday (Nilai Zan) date
+  startDate: string; // Wednesday (Nilaini Zan) date
   endDate: string; // Sunday (Pathianni Zan) date
   services: WeeklyServiceItem[];
   announcements?: string; // Optional general notices (e.g. Pangpar khawitute, Thawhlawm khawntute)
@@ -129,8 +130,8 @@ export interface WeeklySchedulePackage {
 
 export const STANDARD_WEEKLY_SERVICES_TEMPLATE: Omit<WeeklyServiceItem, 'id' | 'date'>[] = [
   {
-    dayShort: 'Nilai Zan',
-    dayTitle: 'Nilai Zan (Wednesday Night)',
+    dayShort: 'Nilaini Zan',
+    dayTitle: 'Nilaini Zan (Wednesday Night)',
     time: '19:00',
     roles: [
       { role: 'Hruaitu', value: '' },
@@ -185,6 +186,7 @@ export const DEFAULT_PROGRAM_ROLES: Record<string, string[]> = {
   'Pathianni (Sunday) Zan': ['Thuhriltu'],
   'Thawhtanni Zan (KTP)': ['Hruaitu', 'Tantu', 'Thuhriltu'],
   'Thawhlehni Zan (Kohhran Hmeichhia)': ['Hruaitu', 'Tantu', 'Thuhriltu'],
+  'Nilaini Zan': ['Hruaitu', 'Tantu', 'Thupui Hawngtu'],
   'Nilai Zan': ['Hruaitu', 'Tantu', 'Thupui Hawngtu'],
   'Inrinni Zan': ['Hruaitu', 'Tantu', 'Thuhriltu']
 };

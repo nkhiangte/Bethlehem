@@ -52,29 +52,6 @@ function addDaysToDateString(dateStr: string, days: number): string {
   return date.toISOString().split('T')[0];
 }
 
-function formatDateRange(startStr: string, endStr: string): string {
-  if (!startStr) return '';
-  const [sy, sm, sd] = startStr.split('-').map(Number);
-  const sDate = new Date(Date.UTC(sy, sm - 1, sd));
-  const sMonth = sDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-
-  if (!endStr || startStr === endStr) {
-    return `${sd} ${sMonth}, ${sy}`;
-  }
-
-  const [ey, em, ed] = endStr.split('-').map(Number);
-  const eDate = new Date(Date.UTC(ey, em - 1, ed));
-  const eMonth = eDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-
-  if (sy === ey && sm === em) {
-    return `${sd} – ${ed} ${sMonth}, ${sy}`;
-  } else if (sy === ey) {
-    return `${sd} ${sMonth} – ${ed} ${eMonth}, ${sy}`;
-  } else {
-    return `${sd} ${sMonth}, ${sy} – ${ed} ${eMonth}, ${ey}`;
-  }
-}
-
 function formatMizoDate(dateStr: string): string {
   if (!dateStr) return '';
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -86,7 +63,13 @@ function formatMizoDate(dateStr: string): string {
 }
 
 export { formatTimeDisplay, to24HourTime } from '../lib/utils';
-import { formatTimeDisplay, to24HourTime } from '../lib/utils';
+import { 
+  formatTimeDisplay, 
+  to24HourTime, 
+  buildWeeklyPackages, 
+  getWeekRangeForDate, 
+  formatDateRange 
+} from '../lib/utils';
 
 function getNextOrCurrentWednesday(): string {
   const now = new Date();
@@ -114,7 +97,7 @@ function generateWeeklyShareData(pkg: WeeklySchedulePackage) {
 
   const lines: string[] = [];
   lines.push(`*BETHLEHEM KOHHRAN - TUNKAR KOHHRAN INKHAWM PROGRAMME*`);
-  lines.push(`🗓️ ${range} (Nilai Zan – Pathianni Zan)`);
+  lines.push(`🗓️ ${range} (Nilaini Zan – Pathianni Zan)`);
   lines.push(``);
 
   pkg.services.forEach((srv) => {
@@ -209,152 +192,44 @@ export default function Programs() {
   }, [title, editingProgram]);
 
   // --- FETCHING DATA ---
-  const fetchWeeklyPackages = async () => {
-    if (!isFirebaseConfigured || !db) {
-      const local = localStorage.getItem('local_weekly_schedules');
-      if (local) {
-        try {
-          const data: WeeklySchedulePackage[] = JSON.parse(local);
-          setWeeklyPackages(data);
-          if (data.length > 0) {
-            setSelectedWeekId(prev => (prev && data.find(p => p.id === prev) ? prev : data[0].id));
-          }
-        } catch (e) {
-          setWeeklyPackages([]);
+  const fetchAllProgramsAndPackages = async () => {
+    // Clear any obsolete local dummy package storage
+    try {
+      localStorage.removeItem('local_weekly_schedules');
+    } catch (e) {}
+
+    setLoading(true);
+    try {
+      let rawDocs: any[] = [];
+      if (isFirebaseConfigured && db) {
+        const q = query(collection(db, 'programs'), orderBy('date', 'desc'));
+        const snapshot = await getDocs(q);
+        rawDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } else {
+        const local = localStorage.getItem('local_programs');
+        if (local) {
+          try {
+            rawDocs = JSON.parse(local);
+          } catch (e) {}
         }
       }
-      setLoading(false);
-      return;
-    }
 
-    try {
-      const q = query(collection(db, 'programs'), where('isWeeklyPackage', '==', true));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeeklySchedulePackage));
-      
-      data.sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
-      setWeeklyPackages(data);
+      const { packages, individualPrograms } = buildWeeklyPackages(rawDocs);
+      setPrograms(individualPrograms);
+      setWeeklyPackages(packages);
 
-      if (data.length > 0) {
-        setSelectedWeekId(prev => (prev && data.find(p => p.id === prev) ? prev : data[0].id));
-      } else {
-        const wed = getNextOrCurrentWednesday();
-        const sun = addDaysToDateString(wed, 4);
-        const samplePkg: WeeklySchedulePackage = {
-          id: 'current_week_programme',
-          title: `Tunkar Kohhran Inkhawm Programme (${formatDateRange(wed, sun)})`,
-          startDate: wed,
-          endDate: sun,
-          services: [
-            {
-              id: 'sample_wed',
-              dayShort: 'Nilai Zan',
-              dayTitle: 'Nilai Zan (Wednesday Night)',
-              date: wed,
-              time: '19:00',
-              roles: [
-                { role: 'Hruaitu', value: 'Upa C. Lalbiakzama' },
-                { role: 'Tantu', value: 'Pi Lalremsangi' },
-                { role: 'Thupui Hawngtu', value: 'Pu K. Lalmuanpuia' },
-                { role: 'Thupui', value: '"Ringtu Nun Kawng"' }
-              ]
-            },
-            {
-              id: 'sample_sat',
-              dayShort: 'Inrinni Zan',
-              dayTitle: 'Inrinni Zan (Saturday Night)',
-              date: addDaysToDateString(wed, 3),
-              time: '19:00',
-              roles: [
-                { role: 'Hruaitu', value: 'Upa H. Laltlanthanga' },
-                { role: 'Tantu', value: 'Nl. Lalrinawmi' },
-                { role: 'Thuhriltu', value: 'Upa R. Vanlalpeka' }
-              ]
-            },
-            {
-              id: 'sample_sun_morn',
-              dayShort: 'Pathianni Chawhma',
-              dayTitle: 'Pathianni Chawhma (Sunday School)',
-              date: sun,
-              time: '10:00',
-              roles: [
-                { role: 'Tantu', value: 'Pu David Lalhmingliana' },
-                { role: 'Zirlai', value: 'Zirlai 42-na' },
-                { role: 'Zirtirtu', value: 'Bialtu Upa' }
-              ]
-            },
-            {
-              id: 'sample_sun_aft',
-              dayShort: 'Pathianni Chawhnu',
-              dayTitle: 'Pathianni Chawhnu (Sunday Afternoon)',
-              date: sun,
-              time: '13:30',
-              roles: [
-                { role: 'Tantu', value: 'Pi Zothanpuii' },
-                { role: 'Thuhriltu', value: 'Pastor Lalrinmawia' }
-              ]
-            },
-            {
-              id: 'sample_sun_night',
-              dayShort: 'Pathianni Zan',
-              dayTitle: 'Pathianni Zan (Sunday Night)',
-              date: sun,
-              time: '19:00',
-              roles: [
-                { role: 'Thuhriltu', value: 'Upa K. Rohmingthanga' },
-                { role: 'Hruaitu', value: 'Kohhran Secretary' }
-              ]
-            }
-          ],
-          announcements: 'Pangpar khawitute: Pi Lalthanpuii te chhungkua\nThawhlawm khawntute: Pu Lalmuana & Pu Zorema'
-        };
-        setWeeklyPackages([samplePkg]);
-        setSelectedWeekId(samplePkg.id);
+      if (packages.length > 0) {
+        setSelectedWeekId(prev => (prev && packages.find(p => p.id === prev) ? prev : packages[0].id));
       }
     } catch (error) {
-      console.error("Error fetching weekly schedules:", error);
-      // Fallback to local
-      const local = localStorage.getItem('local_weekly_schedules');
-      if (local) {
-        try {
-          setWeeklyPackages(JSON.parse(local));
-        } catch (e) {}
-      }
+      console.error("Error fetching programs and weekly packages:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchPrograms = async () => {
-    if (!isFirebaseConfigured || !db) {
-      const local = localStorage.getItem('local_programs');
-      if (local) {
-        try {
-          setPrograms(JSON.parse(local));
-        } catch (e) {}
-      }
-      return;
-    }
-    try {
-      const q = query(collection(db, 'programs'), orderBy('date', 'desc'));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs
-        .filter(doc => !doc.data().isWeeklyPackage)
-        .map(doc => ({ id: doc.id, ...doc.data() } as InkhawmProgramme));
-      
-      data.sort((a, b) => {
-        if (a.date !== b.date) {
-           return b.date.localeCompare(a.date);
-        }
-        return (a.time || '').localeCompare(b.time || '');
-      });
-
-      setPrograms(data);
-    } catch (error) {
-      console.error("Error fetching programs:", error);
-      setPrograms([]);
-    }
-  };
+  const fetchWeeklyPackages = fetchAllProgramsAndPackages;
+  const fetchPrograms = fetchAllProgramsAndPackages;
 
   const fetchTawngtaiMonths = async () => {
     if (!isFirebaseConfigured || !db) {
@@ -405,8 +280,8 @@ export default function Programs() {
       const generatedServices: WeeklyServiceItem[] = [
         {
           id: 'wed_' + Date.now(),
-          dayShort: 'Nilai Zan',
-          dayTitle: 'Nilai Zan (Wednesday Night)',
+          dayShort: 'Nilaini Zan',
+          dayTitle: 'Nilaini Zan (Wednesday Night)',
           date: wedDate,
           time: '19:00',
           roles: [
@@ -583,7 +458,7 @@ export default function Programs() {
 
     try {
       let savedId = editingWeekly?.id;
-      if (savedId) {
+      if (savedId && !savedId.startsWith('week_')) {
         await updateDoc(doc(db, 'programs', savedId), packagePayload);
       } else {
         const docRef = await addDoc(collection(db, 'programs'), {
@@ -593,8 +468,23 @@ export default function Programs() {
         savedId = docRef.id;
       }
 
+      // Also update any individual services that were edited in the weekly package
+      for (const srv of weeklyServices) {
+        if (srv.id && !srv.id.includes('_')) {
+          try {
+            await updateDoc(doc(db, 'programs', srv.id), {
+              title: srv.dayShort || srv.dayTitle,
+              date: srv.date,
+              time: srv.time,
+              roles: srv.roles,
+              ...(srv.notes ? { notes: srv.notes } : {})
+            });
+          } catch (e) {}
+        }
+      }
+
       setIsWeeklyModalOpen(false);
-      await fetchWeeklyPackages();
+      await fetchAllProgramsAndPackages();
       if (savedId) {
         setSelectedWeekId(savedId);
       }
@@ -605,11 +495,13 @@ export default function Programs() {
   };
 
   const handleDeleteWeeklyPackage = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this 1-Week Schedule Package?")) return;
+    const pkgToDelete = weeklyPackages.find(p => p.id === id);
+    if (!pkgToDelete) return;
+
+    if (!confirm(`Are you sure you want to delete the schedule for "${pkgToDelete.title}"?`)) return;
 
     if (!isFirebaseConfigured || !db) {
       const updated = weeklyPackages.filter(p => p.id !== id);
-      localStorage.setItem('local_weekly_schedules', JSON.stringify(updated));
       setWeeklyPackages(updated);
       if (selectedWeekId === id) {
         setSelectedWeekId(updated[0]?.id || '');
@@ -618,12 +510,17 @@ export default function Programs() {
     }
 
     try {
-      await deleteDoc(doc(db, 'programs', id));
-      await fetchWeeklyPackages();
-      if (selectedWeekId === id) {
-        const remaining = weeklyPackages.filter(p => p.id !== id);
-        setSelectedWeekId(remaining[0]?.id || '');
+      if (id.startsWith('week_')) {
+        for (const srv of pkgToDelete.services) {
+          if (srv.id && !srv.id.includes('_')) {
+            await deleteDoc(doc(db, 'programs', srv.id)).catch(() => {});
+          }
+        }
+      } else {
+        await deleteDoc(doc(db, 'programs', id));
       }
+
+      await fetchAllProgramsAndPackages();
     } catch (error) {
       console.error("Error deleting weekly schedule package:", error);
       alert("Failed to delete package.");
@@ -980,7 +877,7 @@ export default function Programs() {
                   <div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#5A5A40]/10 text-[#5A5A40] rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 font-sans">
                       <Sparkles className="w-3 h-3" />
-                      Weekly Church Package • Nilai Zan atanga Pathianni Zan
+                      Weekly Church Package • Nilaini Zan atanga Pathianni Zan
                     </div>
                     <h2 className="text-2xl sm:text-3xl font-serif text-[#2d2d2a] tracking-tight">
                       {currentWeekData.title}
@@ -1011,7 +908,7 @@ export default function Programs() {
                 </div>
               </div>
 
-              {/* Package Services Grid (Nilai Zan to Pathianni Zan in chronological order) */}
+              {/* Package Services Grid (Nilaini Zan to Pathianni Zan in chronological order) */}
               <div className="p-6 sm:p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {currentWeekData.services.map((srv, index) => {
@@ -1101,7 +998,7 @@ export default function Programs() {
               <Layers className="w-10 h-10 text-stone-300 mx-auto" />
               <h3 className="text-lg font-serif text-stone-700">No Weekly Schedule Package Available</h3>
               <p className="text-xs text-stone-500 font-sans max-w-md mx-auto">
-                Admin can bundle church services from Wednesday (Nilai Zan) to Sunday Night (Pathianni Zan) into a complete package to share in one button.
+                Admin can bundle church services from Wednesday (Nilaini Zan) to Sunday Night (Pathianni Zan) into a complete package to share in one button.
               </p>
               {isAdmin && (
                 <button
@@ -1301,7 +1198,7 @@ export default function Programs() {
             <div className="p-5 sm:p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white shrink-0">
               <div>
                 <span className="text-[10px] uppercase font-bold text-[#5A5A40] tracking-widest block font-sans">
-                  Weekly Church Package (Nilai Zan - Pathianni Zan)
+                  Weekly Church Package (Nilaini Zan - Pathianni Zan)
                 </span>
                 <h2 className="text-xl sm:text-2xl font-serif text-[#2d2d2a]">
                   {editingWeekly ? 'Edit Weekly Schedule Package' : 'New 1-Week Schedule Package'}
@@ -1321,7 +1218,7 @@ export default function Programs() {
               <div className="bg-white p-5 rounded-2xl border border-[#ecece0] grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1.5">
-                    Wednesday (Nilai Zan) Date *
+                    Wednesday (Nilaini Zan) Date *
                   </label>
                   <input
                     type="date"

@@ -9,6 +9,7 @@ import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { useBackButton } from '../hooks/useBackButton';
 import { ShareButton } from '../components/ShareButton';
+import { buildWeeklyPackages, formatTimeDisplay } from '../lib/utils';
 
 export default function Home() {
   const [searchParams] = useSearchParams();
@@ -67,41 +68,27 @@ export default function Home() {
   }, []);
 
   const fetchLatestWeeklyPackage = async () => {
-    if (!isFirebaseConfigured || !db) {
-      const local = localStorage.getItem('local_weekly_schedules');
-      if (local) {
-        try {
-          const list: WeeklySchedulePackage[] = JSON.parse(local);
-          if (list.length > 0) setLatestWeeklyPackage(list[0]);
-        } catch (e) {}
-      }
-      return;
-    }
     try {
-      const q = query(collection(db, 'programs'), where('isWeeklyPackage', '==', true));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as WeeklySchedulePackage));
-        list.sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
-        setLatestWeeklyPackage(list[0]);
-      } else {
-        const local = localStorage.getItem('local_weekly_schedules');
-        if (local) {
-          try {
-            const list: WeeklySchedulePackage[] = JSON.parse(local);
-            if (list.length > 0) setLatestWeeklyPackage(list[0]);
-          } catch (e) {}
+      let rawDocs: any[] = [];
+      if (isFirebaseConfigured && db) {
+        const q = query(collection(db, 'programs'), orderBy('date', 'desc'));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          rawDocs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
+      } else {
+        const local = localStorage.getItem('local_programs');
+        if (local) {
+          try { rawDocs = JSON.parse(local); } catch (e) {}
+        }
+      }
+
+      const { packages } = buildWeeklyPackages(rawDocs);
+      if (packages.length > 0) {
+        setLatestWeeklyPackage(packages[0]);
       }
     } catch (e) {
       console.error("Error fetching latest weekly schedule:", e);
-      const local = localStorage.getItem('local_weekly_schedules');
-      if (local) {
-        try {
-          const list: WeeklySchedulePackage[] = JSON.parse(local);
-          if (list.length > 0) setLatestWeeklyPackage(list[0]);
-        } catch (err) {}
-      }
     }
   };
 
@@ -335,6 +322,26 @@ export default function Home() {
     );
   };
 
+  const getWeeklyShareMessage = (pkg: WeeklySchedulePackage) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const lines: string[] = [];
+    lines.push(`*BETHLEHEM KOHHRAN - TUNKAR KOHHRAN INKHAWM PROGRAMME*`);
+    lines.push(`🗓️ ${pkg.startDate} – ${pkg.endDate} (Nilaini Zan – Pathianni Zan)`);
+    lines.push('');
+    if (pkg.services && pkg.services.length > 0) {
+      pkg.services.forEach(srv => {
+        const timeLabel = formatTimeDisplay(srv.time);
+        lines.push(`🔹 *${srv.dayTitle || srv.dayShort}* (${srv.date}${timeLabel ? `, ${timeLabel}` : ''})`);
+        srv.roles.forEach(r => {
+          if (r.value?.trim()) lines.push(`• ${r.role}: ${r.value.trim()}`);
+        });
+        lines.push('');
+      });
+    }
+    lines.push(`Read more & view full schedule:\n${origin}/programs?week=${pkg.id}`);
+    return lines.join('\n');
+  };
+
   const isLongContent = (htmlContent: string) => {
     if (!htmlContent) return false;
     const text = htmlContent.replace(/<[^>]+>/g, '').trim();
@@ -362,7 +369,7 @@ export default function Home() {
                   Tunkar Kohhran Inkhawm Programme
                 </span>
                 <span className="text-xs text-stone-500 font-sans font-semibold">
-                  Nilai Zan – Pathianni Zan
+                  Nilaini Zan – Pathianni Zan
                 </span>
               </div>
               <h2 className="text-lg font-serif font-semibold text-[#2d2d2a]">
@@ -378,7 +385,7 @@ export default function Home() {
             <ShareButton
               title={`Bethlehem Kohhran: ${latestWeeklyPackage.title}`}
               headerTitle="Share 1-Week Schedule"
-              customMessage={`*BETHLEHEM KOHHRAN - TUNKAR KOHHRAN INKHAWM PROGRAMME*\n🗓️ ${latestWeeklyPackage.startDate} – ${latestWeeklyPackage.endDate} (Nilai Zan – Pathianni Zan)\n\nRead more & view full schedule:\n${typeof window !== 'undefined' ? window.location.origin : ''}/programs?week=${latestWeeklyPackage.id}`}
+              customMessage={getWeeklyShareMessage(latestWeeklyPackage)}
               url={`/programs?week=${latestWeeklyPackage.id}`}
               variant="pill"
               buttonText="Share 1-Week Link"

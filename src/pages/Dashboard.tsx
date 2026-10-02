@@ -35,7 +35,9 @@ export default function Dashboard() {
       const allProgramsSnap = await getDocs(collection(db, 'programs'));
       setProgramCount(allProgramsSnap.size);
       
-      const programsData = programsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as InkhawmProgramme));
+      const programsData = programsSnap.docs
+        .filter(doc => !doc.data().isWeeklyPackage)
+        .map(doc => ({ id: doc.id, ...doc.data() } as InkhawmProgramme));
       
       programsData.sort((a, b) => {
         if (a.date !== b.date) {
