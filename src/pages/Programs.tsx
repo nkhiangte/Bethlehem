@@ -42,6 +42,7 @@ import {
 } from '../types';
 import { useAuth } from '../lib/auth';
 import { ShareButton } from '../components/ShareButton';
+import { updateDocumentMetadata } from '../lib/seo';
 
 // --- DATE HELPER UTILITIES ---
 
@@ -96,7 +97,7 @@ function generateWeeklyShareData(pkg: WeeklySchedulePackage) {
   const shareUrl = `${origin}/programs?week=${pkg.id}`;
 
   const lines: string[] = [];
-  lines.push(`*BETHLEHEM KOHHRAN - TUNKAR KOHHRAN INKHAWM PROGRAMME*`);
+  lines.push(`*BETHLEHEM KOHHRAN - TUN KAR KOHHRAN INKHAWM PROGRAMME*`);
   lines.push(`🗓️ ${range} (Nilaini Zan – Pathianni Zan)`);
   lines.push(``);
 
@@ -184,6 +185,29 @@ export default function Programs() {
       }
     }
   }, [weekParam, weeklyPackages]);
+
+  // Dynamic SEO metadata synchronization
+  useEffect(() => {
+    if (selectedWeekId && weeklyPackages.length > 0) {
+      const cur = weeklyPackages.find(p => p.id === selectedWeekId);
+      if (cur) {
+        const { snippet } = generateWeeklyShareData(cur);
+        updateDocumentMetadata({
+          title: cur.title,
+          description: snippet || `Bethlehem Kohhran weekly schedule: ${cur.title}`,
+          url: `/programs?week=${cur.id}`,
+          type: 'article',
+        });
+      }
+    } else {
+      updateDocumentMetadata({
+        title: 'Inkhawm Programme - Bethlehem Kohhran',
+        description: 'Bethlehem Kohhran inkhawm programme kimchang, weekly schedule, leh tawngtai inkhawm hruaitute.',
+        url: '/programs',
+        type: 'website',
+      });
+    }
+  }, [selectedWeekId, weeklyPackages]);
 
   useEffect(() => {
     if (!editingProgram) {
@@ -273,7 +297,7 @@ export default function Programs() {
       const wedDate = getNextOrCurrentWednesday();
       const sunDate = addDaysToDateString(wedDate, 4);
       setWeeklyWedDate(wedDate);
-      setWeeklyTitle(`Tunkar Kohhran Inkhawm Programme (${formatDateRange(wedDate, sunDate)})`);
+      setWeeklyTitle(`Tun Kar Kohhran Inkhawm Programme (${formatDateRange(wedDate, sunDate)})`);
       setWeeklyAnnouncements('');
 
       // Generate standard 5 services from Wednesday to Sunday night
@@ -349,7 +373,7 @@ export default function Programs() {
     if (!newWedDate) return;
 
     const sunDate = addDaysToDateString(newWedDate, 4);
-    setWeeklyTitle(`Tunkar Kohhran Inkhawm Programme (${formatDateRange(newWedDate, sunDate)})`);
+    setWeeklyTitle(`Tun Kar Kohhran Inkhawm Programme (${formatDateRange(newWedDate, sunDate)})`);
 
     // Automatically recalculate dates for standard services while keeping entered role values!
     setWeeklyServices(prev => prev.map((s, idx) => {
@@ -430,7 +454,7 @@ export default function Programs() {
     const sunDate = addDaysToDateString(weeklyWedDate, 4);
     const packagePayload: Omit<WeeklySchedulePackage, 'id'> = {
       isWeeklyPackage: true,
-      title: weeklyTitle.trim() || `Tunkar Kohhran Inkhawm Programme (${formatDateRange(weeklyWedDate, sunDate)})`,
+      title: weeklyTitle.trim() || `Tun Kar Kohhran Inkhawm Programme (${formatDateRange(weeklyWedDate, sunDate)})`,
       startDate: weeklyWedDate,
       endDate: sunDate,
       services: weeklyServices,
@@ -743,7 +767,7 @@ export default function Programs() {
             className="bg-[#5A5A40] text-white px-4 py-2.5 rounded-xl text-xs uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans flex items-center gap-2 shrink-0 shadow-xs"
           >
             <Plus className="w-4 h-4" />
-            Add Tunkar Inkhawm Programme
+            Add Tun Kar Inkhawm Programme
           </button>
         )}
       </div>
@@ -757,7 +781,7 @@ export default function Programs() {
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          Tunkar Kohhran Inkhawm Programme
+          Tun Kar Kohhran Inkhawm Programme
         </button>
         <button 
           onClick={() => setActiveTab('inkhawm')}
@@ -1240,7 +1264,7 @@ export default function Programs() {
                     type="text"
                     value={weeklyTitle}
                     onChange={(e) => setWeeklyTitle(e.target.value)}
-                    placeholder="e.g. Tunkar Kohhran Inkhawm Programme (14 - 18 Oct, 2026)"
+                    placeholder="e.g. Tun Kar Kohhran Inkhawm Programme (14 - 18 Oct, 2026)"
                     className="w-full p-3 bg-[#fcfaf7] border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40] font-semibold"
                   />
                 </div>

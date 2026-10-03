@@ -8,7 +8,8 @@ import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader
 import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { useBackButton } from '../hooks/useBackButton';
-import { ShareButton } from '../components/ShareButton';
+import { ShareButton, extractSentences } from '../components/ShareButton';
+import { resolveThumbnailUrl, updateDocumentMetadata } from '../lib/seo';
 import { buildWeeklyPackages, formatTimeDisplay } from '../lib/utils';
 
 export default function Home() {
@@ -42,6 +43,28 @@ export default function Home() {
       }
     }
   }, [news, searchParams]);
+
+  // Dynamic SEO and Open Graph synchronization for articles and page
+  useEffect(() => {
+    if (viewingArticle) {
+      const thumb = resolveThumbnailUrl(viewingArticle.imageUrl, viewingArticle.content);
+      const { sentences } = extractSentences(viewingArticle.content, 2);
+      updateDocumentMetadata({
+        title: viewingArticle.title,
+        description: sentences || viewingArticle.title,
+        imageUrl: thumb,
+        url: `/?article=${viewingArticle.id}`,
+        type: 'article',
+      });
+    } else {
+      updateDocumentMetadata({
+        title: 'Bethlehem Kohhran',
+        description: 'Official website of Bethlehem Kohhran, Aizawl. Stay updated with church programs, directory, news, and announcements.',
+        url: '/',
+        type: 'website',
+      });
+    }
+  }, [viewingArticle]);
 
   // Edit post state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -325,7 +348,7 @@ export default function Home() {
   const getWeeklyShareMessage = (pkg: WeeklySchedulePackage) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const lines: string[] = [];
-    lines.push(`*BETHLEHEM KOHHRAN - TUNKAR KOHHRAN INKHAWM PROGRAMME*`);
+    lines.push(`*BETHLEHEM KOHHRAN - TUN KAR KOHHRAN INKHAWM PROGRAMME*`);
     lines.push(`🗓️ ${pkg.startDate} – ${pkg.endDate} (Nilaini Zan – Pathianni Zan)`);
     lines.push('');
     if (pkg.services && pkg.services.length > 0) {
@@ -366,7 +389,7 @@ export default function Home() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-[#5A5A40] text-white px-2.5 py-0.5 rounded-full font-sans">
-                  Tunkar Kohhran Inkhawm Programme
+                  Tun Kar Kohhran Inkhawm Programme
                 </span>
                 <span className="text-xs text-stone-500 font-sans font-semibold">
                   Nilaini Zan – Pathianni Zan

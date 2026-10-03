@@ -8,6 +8,8 @@ import { uploadImageToImgbb } from '../lib/imgbb';
 import { parseGoogleDriveUrl } from '../lib/drive';
 
 import { useBackButton } from '../hooks/useBackButton';
+import { ShareButton } from '../components/ShareButton';
+import { updateDocumentMetadata } from '../lib/seo';
 
 const GoogleDriveLogo = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -56,6 +58,26 @@ export default function Gallery() {
   const [brokenImageIds, setBrokenImageIds] = useState<Record<string, boolean>>({});
 
   const { isAdmin } = useAuth();
+
+  // Dynamic SEO metadata synchronization for Gallery and Photo Viewer
+  useEffect(() => {
+    if (viewingImage) {
+      updateDocumentMetadata({
+        title: viewingImage.title ? `${viewingImage.title} - Gallery` : 'Photo - Bethlehem Kohhran Gallery',
+        description: viewingImage.description || `Bethlehem Kohhran photo: ${viewingImage.title}`,
+        imageUrl: viewingImage.imageUrl,
+        url: `/gallery?image=${viewingImage.id}`,
+        type: 'article',
+      });
+    } else {
+      updateDocumentMetadata({
+        title: 'Gallery - Bethlehem Kohhran',
+        description: 'Bethlehem Kohhran Photo & Video Gallery. Browse church events, gatherings, and fellowship memories.',
+        url: '/gallery',
+        type: 'website',
+      });
+    }
+  }, [viewingImage]);
 
   useEffect(() => {
     fetchData();
@@ -703,9 +725,19 @@ export default function Gallery() {
             </div>
 
             <div className="p-4 border-t border-stone-200 bg-white flex flex-col sm:flex-row justify-between items-center gap-3">
-              <span className="text-xs text-stone-500 font-sans">
-                Added {new Date(viewingImage.date).toLocaleDateString()}
-              </span>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                <span className="text-xs text-stone-500 font-sans">
+                  Added {new Date(viewingImage.date).toLocaleDateString()}
+                </span>
+                <ShareButton
+                  title={`Bethlehem Kohhran Photo: ${viewingImage.title}`}
+                  summary={viewingImage.description || `Bethlehem Kohhran Gallery - ${viewingImage.title}`}
+                  imageUrl={viewingImage.imageUrl}
+                  url={`/gallery?image=${viewingImage.id}`}
+                  variant="pill"
+                  buttonText="Share Photo"
+                />
+              </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 {(viewingImage.driveUrl || viewingImage.isDriveLink) && (
                   <a

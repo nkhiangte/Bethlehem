@@ -23,6 +23,7 @@ import {
 import { cn } from '../lib/utils';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { useAuth } from '../lib/auth';
+import { updateDocumentMetadata } from '../lib/seo';
 import { LoginModal } from './LoginModal';
 
 const navItems = [
@@ -89,7 +90,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       document.head.appendChild(ogUrl);
     }
 
-    // Dynamic Title & Meta Description for Google indexing
+    // Dynamic Title & Meta Description for Google indexing and Open Graph
     const titles: Record<string, string> = {
       '/': 'Bethlehem Kohhran - Official Website',
       '/about': 'About Us & Church History - Bethlehem Kohhran',
@@ -106,11 +107,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
       '/child-safety-standards': 'Child Safety Standards - Bethlehem Kohhran',
       '/terms-of-service': 'Terms of Service - Bethlehem Kohhran',
     };
-    if (titles[currentPath]) {
-      document.title = titles[currentPath];
-    } else {
-      document.title = 'Bethlehem Kohhran';
-    }
+
+    const descriptions: Record<string, string> = {
+      '/': 'Official website of Bethlehem Kohhran, Aizawl. Stay updated with church programs, directory, news, and announcements.',
+      '/about': 'Bethlehem Kohhran chanchin tawi, rawngbawlna leh to bul chanchin.',
+      '/programs': 'Kohhran inkhawm programme kimchang, weekly schedule, leh tawngtai inkhawm hruaitute.',
+      '/directory': 'Bethlehem Kohhran chhungkua leh member directory kimchang.',
+      '/upa-bial': 'Bethlehem Kohhran Upa Bial map leh veng hrang hrang bialtu Upa te.',
+      '/elders': 'Bethlehem Kohhran Upa (Elders) list, contact leh mawhphurhna.',
+      '/committee': 'Kohhran Committee leh Sub-Committee hrang hrang member-te.',
+      '/fellowship': 'KTP, Kohhran Hmeichhia, Pavalai leh Fellowship hrang hrang chanchin.',
+      '/records': 'Bethlehem Kohhran statistics, records leh report-te.',
+      '/archive': 'Kum kalta hrang hranga rawngbawltu leh puiptute archive.',
+      '/gallery': 'Photo Gallery: Kohhran thlalak, inkhawmpui leh fellowship thlalakte.',
+      '/privacy-policy': 'Privacy Policy for Bethlehem Kohhran application and web portal.',
+      '/child-safety-standards': 'Child Safety Standards and CSAM/CSAE Prevention Policy.',
+      '/terms-of-service': 'Terms of Service for Bethlehem Kohhran portal.',
+    };
+
+    const targetTitle = titles[currentPath] || 'Bethlehem Kohhran';
+    const targetDesc = descriptions[currentPath] || 'Official website of Bethlehem Kohhran, Aizawl. Stay updated with church programs, directory, news, and announcements.';
+
+    updateDocumentMetadata({
+      title: targetTitle,
+      description: targetDesc,
+      url: currentPath,
+      type: 'website',
+    });
   }, [location.pathname]);
 
   return (

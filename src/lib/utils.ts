@@ -181,7 +181,7 @@ export function buildWeeklyPackages(
     if (!weeksMap.has(key)) {
       weeksMap.set(key, {
         id: `week_${wedStr}_${sunStr}`,
-        title: `Tunkar Kohhran Inkhawm Programme (${formatDateRange(wedStr, sunStr)})`,
+        title: `Tun Kar Kohhran Inkhawm Programme (${formatDateRange(wedStr, sunStr)})`,
         startDate: wedStr,
         endDate: sunStr,
         services: []

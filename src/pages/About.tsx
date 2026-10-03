@@ -7,7 +7,8 @@ import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { useBackButton } from '../hooks/useBackButton';
 import { uploadImageToImgbb } from '../lib/imgbb';
-import { ShareButton } from '../components/ShareButton';
+import { ShareButton, extractSentences } from '../components/ShareButton';
+import { resolveThumbnailUrl, updateDocumentMetadata } from '../lib/seo';
 
 interface AboutArticle {
   title: string;
@@ -50,6 +51,27 @@ export default function About() {
   useEffect(() => {
     fetchAboutContent();
   }, []);
+
+  useEffect(() => {
+    if (article) {
+      const thumb = resolveThumbnailUrl(undefined, article.content);
+      const { sentences } = extractSentences(article.content, 2);
+      updateDocumentMetadata({
+        title: article.title || 'About Us - Bethlehem Kohhran',
+        description: sentences || 'Bethlehem Kohhran chanchin tawi, rawngbawlna leh to bul.',
+        imageUrl: thumb,
+        url: '/about',
+        type: 'article',
+      });
+    } else {
+      updateDocumentMetadata({
+        title: 'About Us - Bethlehem Kohhran',
+        description: 'Bethlehem Kohhran chanchin tawi, rawngbawlna leh to bul.',
+        url: '/about',
+        type: 'website',
+      });
+    }
+  }, [article]);
 
   const fetchAboutContent = async () => {
     setLoading(true);

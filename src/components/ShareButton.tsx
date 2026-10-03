@@ -13,6 +13,7 @@ import {
   FileText
 } from 'lucide-react';
 import { useBackButton } from '../hooks/useBackButton';
+import { resolveThumbnailUrl, updateDocumentMetadata } from '../lib/seo';
 
 export interface ShareButtonProps {
   title: string;
@@ -32,25 +33,12 @@ export interface ShareButtonProps {
 
 /**
  * Extracts embedded image from HTML/markdown or uses explicit imageUrl,
- * falling back to `/logo.png`
+ * falling back to `/og-thumb.jpg`
  */
 export function extractThumbnail(content?: string, imageUrl?: string): { url: string; isEmbeddedOrCustom: boolean } {
-  if (imageUrl && imageUrl.trim()) {
-    return { url: imageUrl.trim(), isEmbeddedOrCustom: true };
-  }
-  if (content) {
-    // 1. Check HTML <img> tag with src
-    const imgMatch = content.match(/<img[^>]+src=["']([^"']+)["']/i);
-    if (imgMatch && imgMatch[1]) {
-      return { url: imgMatch[1], isEmbeddedOrCustom: true };
-    }
-    // 2. Check Markdown ![alt](url)
-    const mdMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s\)]+|\/[^\s\)]+)\)/i);
-    if (mdMatch && mdMatch[1]) {
-      return { url: mdMatch[1], isEmbeddedOrCustom: true };
-    }
-  }
-  return { url: '/logo.png', isEmbeddedOrCustom: false };
+  const resolved = resolveThumbnailUrl(imageUrl, content);
+  const isDefault = resolved.endsWith('/og-thumb.jpg') || resolved.endsWith('/og-square.jpg') || resolved.endsWith('/logo.png');
+  return { url: resolved, isEmbeddedOrCustom: !isDefault };
 }
 
 /**
@@ -143,15 +131,6 @@ export function ShareButton({
   const [thumbnailUrl, setThumbnailUrl] = useState(initialThumb.url);
   const [isDefaultLogo, setIsDefaultLogo] = useState(!initialThumb.isEmbeddedOrCustom);
 
-  // Update thumbnail if props change
-  useEffect(() => {
-    const extracted = extractThumbnail(effectiveContent, imageUrl);
-    setThumbnailUrl(extracted.url);
-    setIsDefaultLogo(!extracted.isEmbeddedOrCustom);
-  }, [effectiveContent, imageUrl]);
-
-  useBackButton(isOpen, () => setIsOpen(false));
-
   // Determine full share URL
   const getShareUrl = () => {
     if (!url) {
@@ -171,6 +150,27 @@ export function ShareButton({
   const snippet = customSnippet !== undefined 
     ? customSnippet 
     : (sentences ? (hasMore ? `${sentences}...` : sentences) : '');
+
+  // Update thumbnail and meta if props change
+  useEffect(() => {
+    const extracted = extractThumbnail(effectiveContent, imageUrl);
+    setThumbnailUrl(extracted.url);
+    setIsDefaultLogo(!extracted.isEmbeddedOrCustom);
+  }, [effectiveContent, imageUrl]);
+
+  useEffect(() => {
+    if (isOpen) {
+      updateDocumentMetadata({
+        title,
+        description: snippet || summary || content,
+        imageUrl: thumbnailUrl,
+        url: shareUrl,
+        type: 'article',
+      });
+    }
+  }, [isOpen, title, snippet, summary, content, thumbnailUrl, shareUrl]);
+
+  useBackButton(isOpen, () => setIsOpen(false));
 
   // Formatted share message:
   // Can use customMessage directly if provided (e.g. for structured weekly bulletin schedule)
@@ -376,8 +376,8 @@ export function ShareButton({
             {/* Article Preview Card with Thumbnail */}
             <div className="p-4 sm:p-5 border-b border-[#ecece0] bg-stone-50/50">
               <div className="flex gap-3.5 sm:gap-4 items-start">
-                {/* Thumbnail Image: embedded image if present, otherwise logo */}
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white border border-[#ecece0] shrink-0 flex items-center justify-center p-1 shadow-2xs">
+                {/* Thumbnail Image: embedded image if present, otherwise logo in compact smaller size */}
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-white border border-[#ecece0] shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
                   <img
                     src={thumbnailUrl}
                     alt={title || 'Bethlehem Kohhran'}
@@ -386,8 +386,8 @@ export function ShareButton({
                     }`}
                     referrerPolicy="no-referrer"
                     onError={() => {
-                      if (thumbnailUrl !== '/logo.png') {
-                        setThumbnailUrl('/logo.png');
+                      if (thumbnailUrl !== '/og-thumb.jpg' && thumbnailUrl !== '/og-square.jpg' && thumbnailUrl !== '/logo.png') {
+                        setThumbnailUrl('/og-thumb.jpg');
                         setIsDefaultLogo(true);
                       }
                     }}

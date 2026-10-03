@@ -119,7 +119,7 @@ export interface WeeklyServiceItem {
 export interface WeeklySchedulePackage {
   id: string;
   isWeeklyPackage?: boolean;
-  title: string; // e.g. "Tunkar Kohhran Inkhawm Programme (14 - 18 Oct, 2026)"
+  title: string; // e.g. "Tun Kar Kohhran Inkhawm Programme (14 - 18 Oct, 2026)"
   startDate: string; // Wednesday (Nilaini Zan) date
   endDate: string; // Sunday (Pathianni Zan) date
   services: WeeklyServiceItem[];
