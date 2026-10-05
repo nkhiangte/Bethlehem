@@ -66,6 +66,16 @@ export function to24HourTime(timeStr?: string | null): string {
 }
 
 /**
+ * Calculates date offset by N days in YYYY-MM-DD string format
+ */
+export function addDaysToDateString(dateStr: string, days: number): string {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return date.toISOString().split('T')[0];
+}
+
+/**
  * Calculates Wednesday and Sunday of the church week for any given date
  */
 export function getWeekRangeForDate(dateStr: string): { wedStr: string; sunStr: string } {
@@ -86,6 +96,107 @@ export function getWeekRangeForDate(dateStr: string): { wedStr: string; sunStr: 
   return {
     wedStr: wed.toISOString().split('T')[0],
     sunStr: sun.toISOString().split('T')[0]
+  };
+}
+
+/**
+ * Returns the current/active church week range (Wednesday to Sunday).
+ * When Monday arrives, it automatically targets the new upcoming Wednesday!
+ */
+export function getCurrentChurchWeekRange(now: Date = new Date()): { 
+  wedStr: string; 
+  sunStr: string; 
+  isNewWeekStarting: boolean;
+  todayStr: string;
+} {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${y}-${m}-${d}`;
+  const range = getWeekRangeForDate(todayStr);
+  const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, 2 = Tue, 3 = Wed
+  const isNewWeekStarting = dayOfWeek === 1 || dayOfWeek === 2; // Mon or Tue: new week starts, prep new programme
+  return { ...range, isNewWeekStarting, todayStr };
+}
+
+/**
+ * Generates a clean, blank weekly package template with empty roles ready to be filled by Admin
+ */
+export function createBlankWeeklyPackageTemplate(wedDate?: string): WeeklySchedulePackage {
+  const wedStr = wedDate || getCurrentChurchWeekRange().wedStr;
+  const sunStr = addDaysToDateString(wedStr, 4);
+  const rangeStr = formatDateRange(wedStr, sunStr);
+
+  const services: WeeklyServiceItem[] = [
+    {
+      id: 'wed_' + Date.now(),
+      dayShort: 'Nilaini Zan',
+      dayTitle: 'Nilaini Zan (Wednesday Night)',
+      date: wedStr,
+      time: '19:00',
+      roles: [
+        { role: 'Hruaitu', value: '' },
+        { role: 'Tantu', value: '' },
+        { role: 'Thupui Hawngtu', value: '' },
+        { role: 'Thupui', value: '' }
+      ]
+    },
+    {
+      id: 'sat_' + (Date.now() + 1),
+      dayShort: 'Inrinni Zan',
+      dayTitle: 'Inrinni Zan (Saturday Night)',
+      date: addDaysToDateString(wedStr, 3),
+      time: '19:00',
+      roles: [
+        { role: 'Hruaitu', value: '' },
+        { role: 'Tantu', value: '' },
+        { role: 'Thuhriltu', value: '' }
+      ]
+    },
+    {
+      id: 'sun_morn_' + (Date.now() + 2),
+      dayShort: 'Pathianni Chawhma',
+      dayTitle: 'Pathianni Chawhma (Sunday School)',
+      date: sunStr,
+      time: '10:00',
+      roles: [
+        { role: 'Tantu', value: '' },
+        { role: 'Zirlai', value: '' },
+        { role: 'Zirtirtu', value: '' }
+      ]
+    },
+    {
+      id: 'sun_aft_' + (Date.now() + 3),
+      dayShort: 'Pathianni Chawhnu',
+      dayTitle: 'Pathianni Chawhnu (Sunday Afternoon)',
+      date: sunStr,
+      time: '13:30',
+      roles: [
+        { role: 'Tantu', value: '' },
+        { role: 'Thuhriltu', value: '' }
+      ]
+    },
+    {
+      id: 'sun_night_' + (Date.now() + 4),
+      dayShort: 'Pathianni Zan',
+      dayTitle: 'Pathianni Zan (Sunday Night)',
+      date: sunStr,
+      time: '19:00',
+      roles: [
+        { role: 'Thuhriltu', value: '' },
+        { role: 'Hruaitu', value: '' }
+      ]
+    }
+  ];
+
+  return {
+    id: `week_${wedStr}_${sunStr}`,
+    isWeeklyPackage: true,
+    title: `Tun Kar Kohhran Inkhawm Programme (${rangeStr})`,
+    startDate: wedStr,
+    endDate: sunStr,
+    services,
+    announcements: ''
   };
 }
 
@@ -146,7 +257,13 @@ export function programToWeeklyService(program: InkhawmProgramme): WeeklyService
 
 export function buildWeeklyPackages(
   rawDocs: any[]
-): { packages: WeeklySchedulePackage[]; individualPrograms: InkhawmProgramme[] } {
+): { 
+  packages: WeeklySchedulePackage[]; 
+  currentWeekPackage: WeeklySchedulePackage | null;
+  archivedPackages: WeeklySchedulePackage[];
+  individualPrograms: InkhawmProgramme[];
+  currentWeekRange: { wedStr: string; sunStr: string; isNewWeekStarting: boolean };
+} {
   const individualPrograms: InkhawmProgramme[] = [];
   const explicitPackages: WeeklySchedulePackage[] = [];
 
@@ -204,7 +321,21 @@ export function buildWeeklyPackages(
     });
   }
 
-  return { packages, individualPrograms };
+  const currentWeekRange = getCurrentChurchWeekRange();
+  
+  // Find package for the current active week
+  const currentWeekPackage = packages.find(p => p.startDate === currentWeekRange.wedStr) || null;
+  
+  // Archived packages: packages whose end date is before the current week's Wednesday
+  const archivedPackages = packages.filter(p => p.startDate !== currentWeekRange.wedStr);
+
+  return { 
+    packages, 
+    currentWeekPackage, 
+    archivedPackages, 
+    individualPrograms,
+    currentWeekRange
+  };
 }
 
 

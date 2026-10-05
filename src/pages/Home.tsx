@@ -10,12 +10,14 @@ import { RichTextEditor } from '../components/RichTextEditor';
 import { useBackButton } from '../hooks/useBackButton';
 import { ShareButton, extractSentences } from '../components/ShareButton';
 import { resolveThumbnailUrl, updateDocumentMetadata } from '../lib/seo';
-import { buildWeeklyPackages, formatTimeDisplay } from '../lib/utils';
+import { buildWeeklyPackages, formatTimeDisplay, getCurrentChurchWeekRange, formatDateRange } from '../lib/utils';
 
 export default function Home() {
   const [searchParams] = useSearchParams();
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [latestWeeklyPackage, setLatestWeeklyPackage] = useState<WeeklySchedulePackage | null>(null);
+  const [currentWeekRange, setCurrentWeekRange] = useState(() => getCurrentChurchWeekRange());
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
@@ -75,8 +77,6 @@ export default function Home() {
   const [uploadingEditInline, setUploadingEditInline] = useState(false);
 
   // Latest Weekly Schedule Package
-  const [latestWeeklyPackage, setLatestWeeklyPackage] = useState<WeeklySchedulePackage | null>(null);
-
   const { isAdmin } = useAuth();
 
   const quillRef = useRef<any>(null);
@@ -106,10 +106,9 @@ export default function Home() {
         }
       }
 
-      const { packages } = buildWeeklyPackages(rawDocs);
-      if (packages.length > 0) {
-        setLatestWeeklyPackage(packages[0]);
-      }
+      const { currentWeekPackage: activePkg, currentWeekRange: rangeInfo } = buildWeeklyPackages(rawDocs);
+      setCurrentWeekRange(rangeInfo);
+      setLatestWeeklyPackage(activePkg || null);
     } catch (e) {
       console.error("Error fetching latest weekly schedule:", e);
     }
@@ -380,7 +379,7 @@ export default function Home() {
   return (
     <div className="space-y-6">
       {/* Weekly Church Schedule Banner */}
-      {latestWeeklyPackage && (
+      {latestWeeklyPackage ? (
         <div className="bg-gradient-to-r from-[#fcfaf7] to-white rounded-3xl border border-[#e0e0d5] p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className="p-3 bg-[#5A5A40]/10 text-[#5A5A40] rounded-2xl shrink-0 mt-0.5">
@@ -399,7 +398,7 @@ export default function Home() {
                 {latestWeeklyPackage.title}
               </h2>
               <p className="text-xs text-stone-500 font-sans mt-0.5">
-                🗓️ {latestWeeklyPackage.startDate} atanga {latestWeeklyPackage.endDate} inkhawm ruahmanna kimchang.
+                🗓️ {formatDateRange(latestWeeklyPackage.startDate, latestWeeklyPackage.endDate)}
               </p>
             </div>
           </div>
@@ -419,6 +418,40 @@ export default function Home() {
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs uppercase font-bold tracking-wider text-stone-700 hover:text-[#5A5A40] bg-stone-100 hover:bg-stone-200 transition font-sans"
             >
               <span>View Schedule</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-r from-amber-50/70 to-stone-50 rounded-3xl border border-amber-200/60 p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="p-3 bg-[#5A5A40]/10 text-[#5A5A40] rounded-2xl shrink-0 mt-0.5">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-[#5A5A40] text-white px-2.5 py-0.5 rounded-full font-sans">
+                  Tun Kar Kohhran Inkhawm Programme
+                </span>
+                <span className="text-[10px] uppercase font-bold text-amber-900 bg-amber-200/60 px-2 py-0.5 rounded-full font-mono">
+                  New Week (Blank)
+                </span>
+              </div>
+              <h2 className="text-lg font-serif font-semibold text-[#2d2d2a]">
+                Tun Kar Inkhawm Programme ({formatDateRange(currentWeekRange.wedStr, currentWeekRange.sunStr)})
+              </h2>
+              <p className="text-xs text-stone-600 font-sans mt-0.5">
+                Kar thar inkhawm programme ruahman mek a ni. Kar kalta programme chu Archive-ah a en theih e.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+            <Link
+              to="/programs"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider text-white bg-[#5A5A40] hover:bg-[#4a4a35] transition font-sans shadow-xs"
+            >
+              <span>{isAdmin ? 'Fill Tun Kar Programme' : 'View Programme'}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>

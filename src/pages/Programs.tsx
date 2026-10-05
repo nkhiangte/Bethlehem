@@ -69,7 +69,9 @@ import {
   to24HourTime, 
   buildWeeklyPackages, 
   getWeekRangeForDate, 
-  formatDateRange 
+  formatDateRange,
+  getCurrentChurchWeekRange,
+  createBlankWeeklyPackageTemplate
 } from '../lib/utils';
 
 function getNextOrCurrentWednesday(): string {
@@ -141,6 +143,10 @@ export default function Programs() {
 
   // --- WEEKLY SCHEDULE PACKAGE STATES ---
   const [weeklyPackages, setWeeklyPackages] = useState<WeeklySchedulePackage[]>([]);
+  const [currentWeekPackage, setCurrentWeekPackage] = useState<WeeklySchedulePackage | null>(null);
+  const [archivedPackages, setArchivedPackages] = useState<WeeklySchedulePackage[]>([]);
+  const [currentWeekRange, setCurrentWeekRange] = useState<{ wedStr: string; sunStr: string; isNewWeekStarting: boolean; todayStr: string }>(() => getCurrentChurchWeekRange());
+  const [weeklySectionTab, setWeeklySectionTab] = useState<'active' | 'archive'>('active');
   const [selectedWeekId, setSelectedWeekId] = useState<string>('');
   const [isWeeklyModalOpen, setIsWeeklyModalOpen] = useState(false);
   const [editingWeekly, setEditingWeekly] = useState<WeeklySchedulePackage | null>(null);
@@ -182,23 +188,28 @@ export default function Programs() {
       if (found) {
         setSelectedWeekId(found.id);
         setActiveTab('weekly');
+        if (currentWeekPackage && found.id === currentWeekPackage.id) {
+          setWeeklySectionTab('active');
+        } else {
+          setWeeklySectionTab('archive');
+        }
       }
+    } else if (!weekParam) {
+      setWeeklySectionTab('active');
     }
-  }, [weekParam, weeklyPackages]);
+  }, [weekParam, weeklyPackages, currentWeekPackage]);
 
   // Dynamic SEO metadata synchronization
   useEffect(() => {
-    if (selectedWeekId && weeklyPackages.length > 0) {
-      const cur = weeklyPackages.find(p => p.id === selectedWeekId);
-      if (cur) {
-        const { snippet } = generateWeeklyShareData(cur);
-        updateDocumentMetadata({
-          title: cur.title,
-          description: snippet || `Bethlehem Kohhran weekly schedule: ${cur.title}`,
-          url: `/programs?week=${cur.id}`,
-          type: 'article',
-        });
-      }
+    const activeDoc = weeklySectionTab === 'active' ? currentWeekPackage : (weeklyPackages.find(p => p.id === selectedWeekId) || null);
+    if (activeDoc) {
+      const { snippet } = generateWeeklyShareData(activeDoc);
+      updateDocumentMetadata({
+        title: activeDoc.title,
+        description: snippet || `Bethlehem Kohhran weekly schedule: ${activeDoc.title}`,
+        url: `/programs?week=${activeDoc.id}`,
+        type: 'article',
+      });
     } else {
       updateDocumentMetadata({
         title: 'Inkhawm Programme - Bethlehem Kohhran',
@@ -207,7 +218,7 @@ export default function Programs() {
         type: 'website',
       });
     }
-  }, [selectedWeekId, weeklyPackages]);
+  }, [selectedWeekId, weeklyPackages, weeklySectionTab, currentWeekPackage]);
 
   useEffect(() => {
     if (!editingProgram) {
@@ -238,12 +249,26 @@ export default function Programs() {
         }
       }
 
-      const { packages, individualPrograms } = buildWeeklyPackages(rawDocs);
+      const { 
+        packages, 
+        currentWeekPackage: activePkg, 
+        archivedPackages: pastPkgs, 
+        individualPrograms, 
+        currentWeekRange: rangeInfo 
+      } = buildWeeklyPackages(rawDocs);
+      
       setPrograms(individualPrograms);
       setWeeklyPackages(packages);
+      setCurrentWeekPackage(activePkg);
+      setArchivedPackages(pastPkgs);
+      setCurrentWeekRange(rangeInfo);
 
       if (packages.length > 0) {
-        setSelectedWeekId(prev => (prev && packages.find(p => p.id === prev) ? prev : packages[0].id));
+        if (activePkg) {
+          setSelectedWeekId(activePkg.id);
+        } else {
+          setSelectedWeekId('');
+        }
       }
     } catch (error) {
       console.error("Error fetching programs and weekly packages:", error);
@@ -285,87 +310,39 @@ export default function Programs() {
 
   // --- WEEKLY SCHEDULE PACKAGE ACTIONS ---
 
-  const handleOpenWeeklyModal = (pkg?: WeeklySchedulePackage) => {
-    if (pkg) {
+  const handleOpenWeeklyModal = (pkg?: WeeklySchedulePackage, forceBlankForCurrentWeek?: boolean) => {
+    if (pkg && !forceBlankForCurrentWeek) {
       setEditingWeekly(pkg);
       setWeeklyWedDate(pkg.startDate);
       setWeeklyTitle(pkg.title);
       setWeeklyServices(JSON.parse(JSON.stringify(pkg.services)));
       setWeeklyAnnouncements(pkg.announcements || '');
     } else {
+      // Whenever a new week starts (Monday onwards), prepare a fresh blank program page to be filled by admin
+      const targetWed = currentWeekRange?.wedStr || getCurrentChurchWeekRange().wedStr;
+      const blankTemplate = createBlankWeeklyPackageTemplate(targetWed);
+      
       setEditingWeekly(null);
-      const wedDate = getNextOrCurrentWednesday();
-      const sunDate = addDaysToDateString(wedDate, 4);
-      setWeeklyWedDate(wedDate);
-      setWeeklyTitle(`Tun Kar Kohhran Inkhawm Programme (${formatDateRange(wedDate, sunDate)})`);
+      setWeeklyWedDate(blankTemplate.startDate);
+      setWeeklyTitle(blankTemplate.title);
+      setWeeklyServices(blankTemplate.services);
       setWeeklyAnnouncements('');
-
-      // Generate standard 5 services from Wednesday to Sunday night
-      const generatedServices: WeeklyServiceItem[] = [
-        {
-          id: 'wed_' + Date.now(),
-          dayShort: 'Nilaini Zan',
-          dayTitle: 'Nilaini Zan (Wednesday Night)',
-          date: wedDate,
-          time: '19:00',
-          roles: [
-            { role: 'Hruaitu', value: '' },
-            { role: 'Tantu', value: '' },
-            { role: 'Thupui Hawngtu', value: '' },
-            { role: 'Thupui', value: '' }
-          ]
-        },
-        {
-          id: 'sat_' + (Date.now() + 1),
-          dayShort: 'Inrinni Zan',
-          dayTitle: 'Inrinni Zan (Saturday Night)',
-          date: addDaysToDateString(wedDate, 3),
-          time: '19:00',
-          roles: [
-            { role: 'Hruaitu', value: '' },
-            { role: 'Tantu', value: '' },
-            { role: 'Thuhriltu', value: '' }
-          ]
-        },
-        {
-          id: 'sun_morn_' + (Date.now() + 2),
-          dayShort: 'Pathianni Chawhma',
-          dayTitle: 'Pathianni Chawhma (Sunday School)',
-          date: sunDate,
-          time: '10:00',
-          roles: [
-            { role: 'Tantu', value: '' },
-            { role: 'Zirlai', value: '' },
-            { role: 'Zirtirtu', value: '' }
-          ]
-        },
-        {
-          id: 'sun_aft_' + (Date.now() + 3),
-          dayShort: 'Pathianni Chawhnu',
-          dayTitle: 'Pathianni Chawhnu (Sunday Afternoon)',
-          date: sunDate,
-          time: '13:30',
-          roles: [
-            { role: 'Tantu', value: '' },
-            { role: 'Thuhriltu', value: '' }
-          ]
-        },
-        {
-          id: 'sun_night_' + (Date.now() + 4),
-          dayShort: 'Pathianni Zan',
-          dayTitle: 'Pathianni Zan (Sunday Night)',
-          date: sunDate,
-          time: '19:00',
-          roles: [
-            { role: 'Thuhriltu', value: '' },
-            { role: 'Hruaitu', value: '' }
-          ]
-        }
-      ];
-
-      setWeeklyServices(generatedServices);
     }
     setIsWeeklyModalOpen(true);
+  };
+
+  const handleResetToBlankTemplate = () => {
+    const targetWed = weeklyWedDate || currentWeekRange?.wedStr || getCurrentChurchWeekRange().wedStr;
+    const blankTemplate = createBlankWeeklyPackageTemplate(targetWed);
+    setWeeklyServices(blankTemplate.services);
+    setWeeklyAnnouncements('');
+    setWeeklyTitle(blankTemplate.title);
+  };
+
+  const handleSetPresetWeek = (preset: 'thisWeek' | 'nextWeek') => {
+    const currentWed = currentWeekRange?.wedStr || getCurrentChurchWeekRange().wedStr;
+    const targetWed = preset === 'thisWeek' ? currentWed : addDaysToDateString(currentWed, 7);
+    handleWeeklyWedDateChange(targetWed);
   };
 
   const handleWeeklyWedDateChange = (newWedDate: string) => {
@@ -582,8 +559,9 @@ export default function Programs() {
     } else {
       setEditingProgram(null);
       setTitle(PROGRAM_TITLES[0]);
-      setDate(new Date().toISOString().split('T')[0]);
-      setTime('10:00');
+      const targetWed = currentWeekRange?.wedStr || getCurrentChurchWeekRange().wedStr;
+      setDate(targetWed);
+      setTime('19:00');
       setRoles(DEFAULT_PROGRAM_ROLES[PROGRAM_TITLES[0]].map(r => ({ role: r, value: '' })));
     }
     setIsInkhawmModalOpen(true);
@@ -748,7 +726,9 @@ export default function Programs() {
   };
 
   const selectedMonthData = tawngtaiMonths.find(m => m.id === selectedMonthId);
-  const currentWeekData = weeklyPackages.find(p => p.id === selectedWeekId) || weeklyPackages[0];
+  const currentWeekData = weeklySectionTab === 'active' 
+    ? currentWeekPackage 
+    : (weeklyPackages.find(p => p.id === selectedWeekId) || archivedPackages[0] || null);
 
   return (
     <div className="space-y-6">
@@ -805,29 +785,70 @@ export default function Programs() {
         <div className="text-center py-12 text-stone-500 font-sans">Loading schedules...</div>
       ) : activeTab === 'weekly' ? (
         <div className="space-y-6">
-          {/* Week Selector Dropdown & Admin controls */}
+          {/* Sub-header controls: Active Week vs Archive Selector */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-[#e0e0d5] shadow-xs">
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <Calendar className="w-5 h-5 text-[#5A5A40] shrink-0" />
-              <div className="flex-1 sm:w-80">
-                <label className="block text-[9px] uppercase font-bold text-stone-400 tracking-wider">Select Week Schedule</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setWeeklySectionTab('active');
+                  if (currentWeekPackage) setSelectedWeekId(currentWeekPackage.id);
+                }}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition font-sans ${
+                  weeklySectionTab === 'active'
+                    ? 'bg-[#5A5A40] text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Tun Kar Programme</span>
+                {currentWeekPackage ? (
+                  <span className="bg-white/20 text-[10px] px-1.5 py-0.5 rounded-full font-mono">Active</span>
+                ) : (
+                  <span className="bg-amber-500/20 text-amber-900 text-[10px] px-1.5 py-0.5 rounded-full font-mono">Thar / Blank</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setWeeklySectionTab('archive');
+                  if (archivedPackages.length > 0 && (!selectedWeekId || selectedWeekId === currentWeekPackage?.id)) {
+                    setSelectedWeekId(archivedPackages[0].id);
+                  }
+                }}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition font-sans ${
+                  weeklySectionTab === 'archive'
+                    ? 'bg-[#5A5A40] text-white shadow-xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Hmasa Lam Archive ({archivedPackages.length})</span>
+              </button>
+            </div>
+
+            {/* Archive Week Selector Dropdown (when in Archive mode) */}
+            {weeklySectionTab === 'archive' && (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Calendar className="w-4 h-4 text-stone-400 shrink-0" />
                 <select
-                  value={selectedWeekId || currentWeekData?.id || ''}
+                  value={selectedWeekId}
                   onChange={(e) => setSelectedWeekId(e.target.value)}
-                  className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-[#5A5A40] uppercase tracking-wider p-0 cursor-pointer"
+                  className="bg-[#fcfaf7] border border-[#ecece0] rounded-xl text-xs font-bold text-[#5A5A40] uppercase tracking-wider py-2 px-3 focus:ring-1 focus:ring-[#5A5A40] cursor-pointer"
                 >
-                  {weeklyPackages.length === 0 ? (
-                    <option value="">-- No weekly packages created --</option>
+                  {archivedPackages.length === 0 ? (
+                    <option value="">-- No archived weeks yet --</option>
                   ) : (
-                    weeklyPackages.map((p, idx) => (
+                    archivedPackages.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {formatDateRange(p.startDate, p.endDate)} {idx === 0 ? '(Current / Latest)' : ''}
+                        {formatDateRange(p.startDate, p.endDate)} (Archived)
                       </option>
                     ))
                   )}
                 </select>
               </div>
-            </div>
+            )}
 
             {/* Quick Share Link of 1 Week Schedule (One-Button Share) */}
             {currentWeekData && (
@@ -855,7 +876,6 @@ export default function Programs() {
                         )}
                       </button>
 
-                      {/* THE ONE-BUTTON SHARE OF 1-WEEK SCHEDULE */}
                       <ShareButton
                         title={`Bethlehem Kohhran: ${currentWeekData.title}`}
                         headerTitle="Share 1-Week Schedule"
@@ -892,148 +912,341 @@ export default function Programs() {
             )}
           </div>
 
-          {/* Active Package Showcase */}
-          {currentWeekData ? (
-            <div className="bg-white rounded-[32px] border border-[#e0e0d5] overflow-hidden shadow-sm">
-              {/* Package Header Banner */}
-              <div className="p-6 sm:p-8 bg-gradient-to-b from-[#fcfaf7] to-white border-b border-[#ecece0]">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#5A5A40]/10 text-[#5A5A40] rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 font-sans">
-                      <Sparkles className="w-3 h-3" />
-                      Weekly Church Package • Nilaini Zan atanga Pathianni Zan
+          {/* ACTIVE WEEK VIEW */}
+          {weeklySectionTab === 'active' && (
+            <>
+              {currentWeekPackage ? (
+                /* Active Package Showcase */
+                <div className="bg-white rounded-[32px] border border-[#e0e0d5] overflow-hidden shadow-sm">
+                  {/* Package Header Banner */}
+                  <div className="p-6 sm:p-8 bg-gradient-to-b from-[#fcfaf7] to-white border-b border-[#ecece0]">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#5A5A40]/10 text-[#5A5A40] rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 font-sans">
+                          <Sparkles className="w-3 h-3" />
+                          Tun Kar Programme • Nilaini Zan atanga Pathianni Zan
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-serif text-[#2d2d2a] tracking-tight">
+                          {currentWeekPackage.title}
+                        </h2>
+                        <p className="mt-1 text-xs text-stone-500 font-sans tracking-wide">
+                          🗓️ {formatDateRange(currentWeekPackage.startDate, currentWeekPackage.endDate)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {(() => {
+                          const shareData = generateWeeklyShareData(currentWeekPackage);
+                          return (
+                            <ShareButton
+                              title={`Bethlehem Kohhran: ${currentWeekPackage.title}`}
+                              headerTitle="Share 1-Week Schedule"
+                              customMessage={shareData.fullText}
+                              customSnippet={shareData.snippet}
+                              url={`/programs?week=${currentWeekPackage.id}`}
+                              variant="button"
+                              buttonText="Share 1-Week Link"
+                              className="bg-[#5A5A40] text-white hover:bg-[#4a4a35] hover:text-white"
+                            />
+                          );
+                        })()}
+                      </div>
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-serif text-[#2d2d2a] tracking-tight">
-                      {currentWeekData.title}
-                    </h2>
-                    <p className="mt-1 text-xs text-stone-500 font-sans tracking-wide">
-                      🗓️ {formatDateRange(currentWeekData.startDate, currentWeekData.endDate)}
-                    </p>
                   </div>
 
-                  {/* Share button banner */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {(() => {
-                      const shareData = generateWeeklyShareData(currentWeekData);
-                      return (
-                        <ShareButton
-                          title={`Bethlehem Kohhran: ${currentWeekData.title}`}
-                          headerTitle="Share 1-Week Schedule"
-                          customMessage={shareData.fullText}
-                          customSnippet={shareData.snippet}
-                          url={`/programs?week=${currentWeekData.id}`}
-                          variant="button"
-                          buttonText="Share 1-Week Link"
-                          className="bg-[#5A5A40] text-white hover:bg-[#4a4a35] hover:text-white"
-                        />
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
+                  {/* Package Services Grid (Nilaini Zan to Pathianni Zan in chronological order) */}
+                  <div className="p-6 sm:p-8 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {currentWeekPackage.services.map((srv, index) => {
+                        const isSunday = srv.dayShort.toLowerCase().includes('pathianni');
+                        const isWednesday = srv.dayShort.toLowerCase().includes('nilai');
 
-              {/* Package Services Grid (Nilaini Zan to Pathianni Zan in chronological order) */}
-              <div className="p-6 sm:p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {currentWeekData.services.map((srv, index) => {
-                    const isSunday = srv.dayShort.toLowerCase().includes('pathianni');
-                    const isWednesday = srv.dayShort.toLowerCase().includes('nilai');
-                    const isSaturday = srv.dayShort.toLowerCase().includes('inrinni');
-
-                    return (
-                      <div 
-                        key={srv.id || index}
-                        className={`rounded-2xl border transition p-5 flex flex-col justify-between ${
-                          isSunday 
-                            ? 'bg-[#fcfaf7] border-[#d8d8c8] shadow-xs' 
-                            : isWednesday
-                            ? 'bg-white border-[#e0e0d5] hover:border-[#5A5A40]/40'
-                            : 'bg-white border-[#e0e0d5] hover:border-[#5A5A40]/40'
-                        }`}
-                      >
-                        <div>
-                          {/* Day badge & time */}
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans ${
+                        return (
+                          <div 
+                            key={srv.id || index}
+                            className={`rounded-2xl border transition p-5 flex flex-col justify-between ${
                               isSunday 
-                                ? 'bg-[#5A5A40] text-white' 
-                                : 'bg-stone-100 text-[#5A5A40]'
-                            }`}>
-                              {srv.dayShort}
-                            </span>
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-stone-600 font-sans">
-                              <Clock className="w-3.5 h-3.5 text-stone-400" />
-                              <span>{formatTimeDisplay(srv.time)}</span>
+                                ? 'bg-[#fcfaf7] border-[#d8d8c8] shadow-xs' 
+                                : isWednesday
+                                ? 'bg-white border-[#e0e0d5] hover:border-[#5A5A40]/40'
+                                : 'bg-white border-[#e0e0d5] hover:border-[#5A5A40]/40'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-2 mb-3">
+                                <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans ${
+                                  isSunday 
+                                    ? 'bg-[#5A5A40] text-white' 
+                                    : 'bg-stone-100 text-[#5A5A40]'
+                                }`}>
+                                  {srv.dayShort}
+                                </span>
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-600 font-sans">
+                                  <Clock className="w-3.5 h-3.5 text-stone-400" />
+                                  <span>{formatTimeDisplay(srv.time)}</span>
+                                </div>
+                              </div>
+
+                              <h3 className="text-base font-serif font-semibold text-[#2d2d2a] mb-1">
+                                {srv.dayTitle}
+                              </h3>
+                              <p className="text-[11px] text-stone-400 font-sans mb-4">
+                                {formatMizoDate(srv.date)}
+                              </p>
+
+                              <div className="space-y-2.5 pt-2 border-t border-[#ecece0] font-sans">
+                                {srv.roles.map((r, rIdx) => (
+                                  <div key={rIdx} className="text-xs flex items-start gap-2">
+                                    <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider shrink-0 w-28">
+                                      {r.role}:
+                                    </span>
+                                    <span className={`font-semibold ${r.value ? 'text-stone-800' : 'text-stone-400 italic'}`}>
+                                      {r.value || 'TBA'}
+                                    </span>
+                                  </div>
+                                ))}
+
+                                {srv.notes && (
+                                  <div className="text-xs pt-1 text-stone-500 italic flex items-start gap-1.5">
+                                    <Info className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                                    <span>{srv.notes}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-
-                          {/* Service full title */}
-                          <h3 className="text-base font-serif font-semibold text-[#2d2d2a] mb-1">
-                            {srv.dayTitle}
-                          </h3>
-                          <p className="text-[11px] text-stone-400 font-sans mb-4">
-                            {formatMizoDate(srv.date)}
-                          </p>
-
-                          {/* Roles & Activities */}
-                          <div className="space-y-2.5 pt-2 border-t border-[#ecece0] font-sans">
-                            {srv.roles.map((r, rIdx) => (
-                              <div key={rIdx} className="text-xs flex items-start gap-2">
-                                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider shrink-0 w-28">
-                                  {r.role}:
-                                </span>
-                                <span className={`font-semibold ${r.value ? 'text-stone-800' : 'text-stone-400 italic'}`}>
-                                  {r.value || 'TBA'}
-                                </span>
-                              </div>
-                            ))}
-
-                            {srv.notes && (
-                              <div className="text-xs pt-1 text-stone-500 italic flex items-start gap-1.5">
-                                <Info className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
-                                <span>{srv.notes}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Weekly Announcements / Hriattirna */}
-                {currentWeekData.announcements && (
-                  <div className="bg-[#fcfaf7] border border-[#ecece0] rounded-2xl p-5 sm:p-6 font-sans">
-                    <div className="flex items-center gap-2 mb-2 text-[#5A5A40]">
-                      <Bell className="w-4 h-4 text-[#5A5A40]" />
-                      <h4 className="text-xs uppercase font-bold tracking-widest text-[#5A5A40]">
-                        Weekly Announcements & Notices (Hriattirnate)
-                      </h4>
+                        );
+                      })}
                     </div>
-                    <p className="text-xs text-stone-700 whitespace-pre-line leading-relaxed pl-6">
-                      {currentWeekData.announcements}
-                    </p>
+
+                    {currentWeekPackage.announcements && (
+                      <div className="bg-[#fcfaf7] border border-[#ecece0] rounded-2xl p-5 sm:p-6 font-sans">
+                        <div className="flex items-center gap-2 mb-2 text-[#5A5A40]">
+                          <Bell className="w-4 h-4 text-[#5A5A40]" />
+                          <h4 className="text-xs uppercase font-bold tracking-widest text-[#5A5A40]">
+                            Weekly Announcements & Notices (Hriattirnate)
+                          </h4>
+                        </div>
+                        <p className="text-xs text-stone-700 whitespace-pre-line leading-relaxed pl-6">
+                          {currentWeekPackage.announcements}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-16 bg-white border border-[#e0e0d5] rounded-3xl p-8 space-y-4">
-              <Layers className="w-10 h-10 text-stone-300 mx-auto" />
-              <h3 className="text-lg font-serif text-stone-700">No Weekly Schedule Package Available</h3>
-              <p className="text-xs text-stone-500 font-sans max-w-md mx-auto">
-                Admin can bundle church services from Wednesday (Nilaini Zan) to Sunday Night (Pathianni Zan) into a complete package to share in one button.
-              </p>
-              {isAdmin && (
-                <button
-                  onClick={() => handleOpenWeeklyModal()}
-                  className="bg-[#5A5A40] text-white px-5 py-2.5 rounded-xl text-xs uppercase font-bold tracking-widest hover:bg-[#4a4a35] transition font-sans inline-flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create First Weekly Package
-                </button>
+                </div>
+              ) : (
+                /* New Week Started - Blank Template Ready for Admin */
+                <div className="bg-white rounded-[32px] border border-[#e0e0d5] overflow-hidden shadow-sm p-6 sm:p-10 space-y-6">
+                  <div className="bg-gradient-to-r from-amber-50 to-stone-50 p-6 rounded-2xl border border-amber-200/70 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="space-y-1.5">
+                      <div className="inline-flex items-center gap-2 px-3 py-0.5 bg-[#5A5A40] text-white rounded-full text-[10px] font-bold uppercase tracking-wider font-sans">
+                        <Sparkles className="w-3 h-3" />
+                        New Week Started (Thawhtanni)
+                      </div>
+                      <h3 className="text-xl sm:text-2xl font-serif text-[#2d2d2a] font-semibold">
+                        Tun Kar Kohhran Inkhawm Programme ({formatDateRange(currentWeekRange.wedStr, currentWeekRange.sunStr)})
+                      </h3>
+                      <p className="text-xs text-stone-600 font-sans max-w-2xl">
+                        Kar kalta programme chu <strong>Hmasa Lam Archive</strong>-ah dah a ni tawh a. Tun kar programme ({currentWeekRange.wedStr} atanga {currentWeekRange.sunStr}) atan blank programme template a inpeih e.
+                      </p>
+                    </div>
+
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenWeeklyModal(undefined, true)}
+                        className="bg-[#5A5A40] text-white hover:bg-[#4a4a35] px-6 py-3 rounded-2xl text-xs uppercase font-bold tracking-wider transition shadow-sm inline-flex items-center gap-2 shrink-0 font-sans"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Fill Tun Kar Programme</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWeeklySectionTab('archive');
+                          if (archivedPackages.length > 0) setSelectedWeekId(archivedPackages[0].id);
+                        }}
+                        className="bg-stone-200 hover:bg-stone-300 text-stone-800 px-5 py-2.5 rounded-xl text-xs uppercase font-bold tracking-wider transition font-sans inline-flex items-center gap-2 shrink-0"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        <span>View Past Weeks (Archive)</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Visual Preview of the Blank Services for the Upcoming Week */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-stone-400 font-sans">
+                        5 Standard Inkhawm Slots for this week (Nilaini – Pathianni)
+                      </span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenWeeklyModal(undefined, true)}
+                          className="text-xs font-bold text-[#5A5A40] uppercase tracking-wider hover:underline font-sans"
+                        >
+                          + Open Full Editor & Fill Roles
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                      {[
+                        { title: 'Nilaini Zan', date: currentWeekRange.wedStr, roles: 'Hruaitu, Tantu, Thupui Hawngtu, Thupui' },
+                        { title: 'Inrinni Zan', date: addDaysToDateString(currentWeekRange.wedStr, 3), roles: 'Hruaitu, Tantu, Thuhriltu' },
+                        { title: 'Pathianni Chawhma', date: currentWeekRange.sunStr, roles: 'Tantu, Zirlai, Zirtirtu' },
+                        { title: 'Pathianni Chawhnu', date: currentWeekRange.sunStr, roles: 'Tantu, Thuhriltu' },
+                        { title: 'Pathianni Zan', date: currentWeekRange.sunStr, roles: 'Thuhriltu, Hruaitu' },
+                      ].map((slot, sIdx) => (
+                        <div 
+                          key={sIdx}
+                          onClick={() => { if (isAdmin) handleOpenWeeklyModal(undefined, true); }}
+                          className={`p-4 rounded-2xl border border-dashed border-[#ecece0] bg-[#fcfaf7] transition ${
+                            isAdmin ? 'cursor-pointer hover:border-[#5A5A40] hover:bg-stone-50' : ''
+                          }`}
+                        >
+                          <span className="text-[10px] font-bold uppercase text-[#5A5A40] block">{slot.title}</span>
+                          <span className="text-[11px] text-stone-500 font-mono block mt-0.5">{slot.date}</span>
+                          <span className="text-[10px] text-stone-400 italic block mt-2">{slot.roles}</span>
+                          <span className="inline-block mt-3 text-[9px] font-bold uppercase px-2 py-0.5 bg-stone-200/70 text-stone-600 rounded">
+                            {isAdmin ? 'Click to fill' : 'TBA'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
-            </div>
+            </>
+          )}
+
+          {/* ARCHIVE WEEKS VIEW */}
+          {weeklySectionTab === 'archive' && (
+            <>
+              {currentWeekData ? (
+                <div className="bg-white rounded-[32px] border border-[#e0e0d5] overflow-hidden shadow-sm">
+                  {/* Archive Header Banner */}
+                  <div className="p-6 sm:p-8 bg-gradient-to-b from-stone-100 to-white border-b border-[#ecece0]">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-200 text-stone-700 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2 font-sans">
+                          <BookOpen className="w-3 h-3" />
+                          Archived Weekly Schedule (Hmasa Lam)
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-serif text-[#2d2d2a] tracking-tight">
+                          {currentWeekData.title}
+                        </h2>
+                        <p className="mt-1 text-xs text-stone-500 font-sans tracking-wide">
+                          🗓️ {formatDateRange(currentWeekData.startDate, currentWeekData.endDate)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {(() => {
+                          const shareData = generateWeeklyShareData(currentWeekData);
+                          return (
+                            <ShareButton
+                              title={`Bethlehem Kohhran: ${currentWeekData.title}`}
+                              headerTitle="Share Archived Schedule"
+                              customMessage={shareData.fullText}
+                              customSnippet={shareData.snippet}
+                              url={`/programs?week=${currentWeekData.id}`}
+                              variant="button"
+                              buttonText="Share Archive Link"
+                              className="bg-[#5A5A40] text-white hover:bg-[#4a4a35] hover:text-white"
+                            />
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Services Grid */}
+                  <div className="p-6 sm:p-8 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {currentWeekData.services.map((srv, index) => {
+                        const isSunday = srv.dayShort.toLowerCase().includes('pathianni');
+                        const isWednesday = srv.dayShort.toLowerCase().includes('nilai');
+
+                        return (
+                          <div 
+                            key={srv.id || index}
+                            className={`rounded-2xl border transition p-5 flex flex-col justify-between ${
+                              isSunday 
+                                ? 'bg-[#fcfaf7] border-[#d8d8c8] shadow-xs' 
+                                : isWednesday
+                                ? 'bg-white border-[#e0e0d5]' 
+                                : 'bg-white border-[#e0e0d5]'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-2 mb-3">
+                                <span className="inline-block px-2.5 py-1 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans bg-stone-100 text-[#5A5A40]">
+                                  {srv.dayShort}
+                                </span>
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-600 font-sans">
+                                  <Clock className="w-3.5 h-3.5 text-stone-400" />
+                                  <span>{formatTimeDisplay(srv.time)}</span>
+                                </div>
+                              </div>
+
+                              <h3 className="text-base font-serif font-semibold text-[#2d2d2a] mb-1">
+                                {srv.dayTitle}
+                              </h3>
+                              <p className="text-[11px] text-stone-400 font-sans mb-4">
+                                {formatMizoDate(srv.date)}
+                              </p>
+
+                              <div className="space-y-2.5 pt-2 border-t border-[#ecece0] font-sans">
+                                {srv.roles.map((r, rIdx) => (
+                                  <div key={rIdx} className="text-xs flex items-start gap-2">
+                                    <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider shrink-0 w-28">
+                                      {r.role}:
+                                    </span>
+                                    <span className="font-semibold text-stone-800">
+                                      {r.value || 'TBA'}
+                                    </span>
+                                  </div>
+                                ))}
+
+                                {srv.notes && (
+                                  <div className="text-xs pt-1 text-stone-500 italic flex items-start gap-1.5">
+                                    <Info className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                                    <span>{srv.notes}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {currentWeekData.announcements && (
+                      <div className="bg-[#fcfaf7] border border-[#ecece0] rounded-2xl p-5 sm:p-6 font-sans">
+                        <div className="flex items-center gap-2 mb-2 text-[#5A5A40]">
+                          <Bell className="w-4 h-4 text-[#5A5A40]" />
+                          <h4 className="text-xs uppercase font-bold tracking-widest text-[#5A5A40]">
+                            Weekly Announcements & Notices (Hriattirnate)
+                          </h4>
+                        </div>
+                        <p className="text-xs text-stone-700 whitespace-pre-line leading-relaxed pl-6">
+                          {currentWeekData.announcements}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-16 bg-white border border-[#e0e0d5] rounded-3xl p-8 space-y-3 font-sans">
+                  <BookOpen className="w-10 h-10 text-stone-300 mx-auto" />
+                  <h3 className="text-base font-bold text-stone-700">No Archived Packages</h3>
+                  <p className="text-xs text-stone-400">Previous week packages will appear here automatically when a new week starts.</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : activeTab === 'inkhawm' ? (
@@ -1238,6 +1451,36 @@ export default function Programs() {
 
             {/* Modal Body */}
             <div className="p-5 sm:p-6 overflow-y-auto space-y-6 font-sans">
+              {/* Quick Week Selectors & Preset Helpers */}
+              <div className="bg-[#fcfaf7] p-4 rounded-2xl border border-[#ecece0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wider">Quick Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPresetWeek('thisWeek')}
+                    className="px-3 py-1 bg-white hover:bg-stone-100 border border-[#ecece0] rounded-lg text-xs font-semibold text-[#5A5A40] transition"
+                  >
+                    🗓️ Tun Kar (This Week)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetPresetWeek('nextWeek')}
+                    className="px-3 py-1 bg-white hover:bg-stone-100 border border-[#ecece0] rounded-lg text-xs font-semibold text-[#5A5A40] transition"
+                  >
+                    🗓️ Kar Leh (Next Week)
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleResetToBlankTemplate}
+                  className="px-3 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Reset to Blank Template</span>
+                </button>
+              </div>
+
               {/* Step 1: Week Dates Configuration */}
               <div className="bg-white p-5 rounded-2xl border border-[#ecece0] grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
