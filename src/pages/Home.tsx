@@ -94,8 +94,7 @@ export default function Home() {
     try {
       let rawDocs: any[] = [];
       if (isFirebaseConfigured && db) {
-        const q = query(collection(db, 'programs'), orderBy('date', 'desc'));
-        const snap = await getDocs(q);
+        const snap = await getDocs(collection(db, 'programs'));
         if (!snap.empty) {
           rawDocs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }

@@ -281,13 +281,31 @@ export function buildWeeklyPackages(
     return (a.time || '').localeCompare(b.time || '');
   });
 
+  // First sort explicitPackages by updatedAt descending (latest first)
+  explicitPackages.sort((a, b) => {
+    const timeA = a.updatedAt || a.createdAt || '';
+    const timeB = b.updatedAt || b.createdAt || '';
+    return timeB.localeCompare(timeA);
+  });
+
   // Group individual programs by week
   const weeksMap = new Map<string, WeeklySchedulePackage>();
 
-  // First add any explicit packages
+  // Helper to count how many roles have non-empty values
+  const countFilledRoles = (pkg: WeeklySchedulePackage) => 
+    (pkg.services || []).reduce((acc, s) => acc + (s.roles || []).filter(r => r.value?.trim()).length, 0);
+
+  // Add explicit packages, ensuring populated packages take priority over blank/empty duplicates
   for (const pkg of explicitPackages) {
     const key = `${pkg.startDate}_${pkg.endDate}`;
-    weeksMap.set(key, pkg);
+    if (!weeksMap.has(key)) {
+      weeksMap.set(key, pkg);
+    } else {
+      const existing = weeksMap.get(key)!;
+      if (countFilledRoles(pkg) > countFilledRoles(existing)) {
+        weeksMap.set(key, pkg);
+      }
+    }
   }
 
   // Then group individual programs into weeks

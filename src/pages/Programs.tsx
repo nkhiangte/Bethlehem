@@ -237,8 +237,7 @@ export default function Programs() {
     try {
       let rawDocs: any[] = [];
       if (isFirebaseConfigured && db) {
-        const q = query(collection(db, 'programs'), orderBy('date', 'desc'));
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocs(collection(db, 'programs'));
         rawDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       } else {
         const local = localStorage.getItem('local_programs');
@@ -345,22 +344,28 @@ export default function Programs() {
     handleWeeklyWedDateChange(targetWed);
   };
 
-  const handleWeeklyWedDateChange = (newWedDate: string) => {
-    setWeeklyWedDate(newWedDate);
-    if (!newWedDate) return;
+  const handleWeeklyWedDateChange = (rawDate: string) => {
+    if (!rawDate) {
+      setWeeklyWedDate('');
+      return;
+    }
 
-    const sunDate = addDaysToDateString(newWedDate, 4);
-    setWeeklyTitle(`Tun Kar Kohhran Inkhawm Programme (${formatDateRange(newWedDate, sunDate)})`);
+    const { wedStr, sunStr } = getWeekRangeForDate(rawDate);
+    const targetWed = wedStr || rawDate;
+    const targetSun = sunStr || addDaysToDateString(targetWed, 4);
+
+    setWeeklyWedDate(targetWed);
+    setWeeklyTitle(`Tun Kar Kohhran Inkhawm Programme (${formatDateRange(targetWed, targetSun)})`);
 
     // Automatically recalculate dates for standard services while keeping entered role values!
     setWeeklyServices(prev => prev.map((s, idx) => {
       let updatedDate = s.date;
       if (idx === 0 || s.dayShort.toLowerCase().includes('nilai')) {
-        updatedDate = newWedDate;
+        updatedDate = targetWed;
       } else if (idx === 1 || s.dayShort.toLowerCase().includes('inrinni')) {
-        updatedDate = addDaysToDateString(newWedDate, 3);
+        updatedDate = addDaysToDateString(targetWed, 3);
       } else if (s.dayShort.toLowerCase().includes('pathianni')) {
-        updatedDate = sunDate;
+        updatedDate = targetSun;
       }
       return { ...s, date: updatedDate };
     }));
@@ -428,12 +433,16 @@ export default function Programs() {
       return;
     }
 
-    const sunDate = addDaysToDateString(weeklyWedDate, 4);
-    const packagePayload: Omit<WeeklySchedulePackage, 'id'> = {
+    const { wedStr, sunStr } = getWeekRangeForDate(weeklyWedDate);
+    const resolvedWed = wedStr || weeklyWedDate;
+    const resolvedSun = sunStr || addDaysToDateString(resolvedWed, 4);
+
+    const packagePayload: any = {
       isWeeklyPackage: true,
-      title: weeklyTitle.trim() || `Tun Kar Kohhran Inkhawm Programme (${formatDateRange(weeklyWedDate, sunDate)})`,
-      startDate: weeklyWedDate,
-      endDate: sunDate,
+      title: weeklyTitle.trim() || `Tun Kar Kohhran Inkhawm Programme (${formatDateRange(resolvedWed, resolvedSun)})`,
+      date: resolvedWed,
+      startDate: resolvedWed,
+      endDate: resolvedSun,
       services: weeklyServices,
       announcements: weeklyAnnouncements.trim(),
       updatedAt: new Date().toISOString()
@@ -454,11 +463,16 @@ export default function Programs() {
       setWeeklyPackages(updated);
       setSelectedWeekId(assignedId);
       setIsWeeklyModalOpen(false);
+      setWeeklySectionTab('active');
       return;
     }
 
     try {
       let savedId = editingWeekly?.id;
+      if (!savedId && currentWeekPackage?.id && !currentWeekPackage.id.startsWith('week_') && currentWeekPackage.startDate === resolvedWed) {
+        savedId = currentWeekPackage.id;
+      }
+
       if (savedId && !savedId.startsWith('week_')) {
         await updateDoc(doc(db, 'programs', savedId), packagePayload);
       } else {
@@ -489,6 +503,7 @@ export default function Programs() {
       if (savedId) {
         setSelectedWeekId(savedId);
       }
+      setWeeklySectionTab('active');
     } catch (error: any) {
       console.error("Error saving weekly schedule package:", error);
       alert("Failed to save weekly schedule package. Please try again.");
