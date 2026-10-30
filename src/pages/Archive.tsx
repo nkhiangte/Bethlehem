@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Users, Plus, X, Pencil, Trash2, ChevronRight, Folder, FolderPlus, 
   Download, Upload, FileSpreadsheet, ExternalLink, Search, Settings, FileText, Check,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ArrowUpDown, ArrowUp, ArrowDown, FileCheck, Layers, Columns3, FolderTree
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, setDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
@@ -24,6 +25,7 @@ export default function Archive() {
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<ArchiveYear | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<ArchiveFolder | null>(null);
+  const [selectedSubFolder, setSelectedSubFolder] = useState<string>('');
   
   useBackButton(!!selectedFolder, () => setSelectedFolder(null));
 
@@ -40,6 +42,17 @@ export default function Archive() {
   const [editingEntry, setEditingEntry] = useState<ArchiveEntry | null>(null);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+  // Admin Header Management Modal State
+  const [isHeaderModalOpen, setIsHeaderModalOpen] = useState(false);
+  const [editingHeaderField, setEditingHeaderField] = useState<ArchiveFieldDefinition | null>(null);
+  const [headerName, setHeaderName] = useState('');
+  const [headerType, setHeaderType] = useState<ArchiveFieldDefinition['type']>('text');
+  const [headerRequired, setHeaderRequired] = useState(false);
+
+  // Admin Sub-folder Management Modal State
+  const [isSubFolderModalOpen, setIsSubFolderModalOpen] = useState(false);
+  const [newSubFolderName, setNewSubFolderName] = useState('');
   
   // Sorting State (default: descending so latest years are at top)
   const [sortField, setSortField] = useState<string | null>(null);
@@ -52,6 +65,7 @@ export default function Archive() {
   // Form State: Folder & Custom Fields
   const [folderName, setFolderName] = useState('');
   const [folderDesc, setFolderDesc] = useState('');
+  const [folderSubFoldersStr, setFolderSubFoldersStr] = useState('');
   const [folderFields, setFolderFields] = useState<ArchiveFieldDefinition[]>([]);
 
   // Form State: Entry Data
@@ -60,6 +74,19 @@ export default function Archive() {
   // Form State: CSV Upload
   const [uploadPreview, setUploadPreview] = useState<Record<string, any>[]>([]);
   const [uploadFileName, setUploadFileName] = useState('');
+
+  // Synchronize active sub-folder when selected folder changes
+  useEffect(() => {
+    if (selectedFolder) {
+      if (selectedFolder.subFolders && selectedFolder.subFolders.length > 0) {
+        if (!selectedSubFolder || !selectedFolder.subFolders.includes(selectedSubFolder)) {
+          setSelectedSubFolder(selectedFolder.subFolders[0]);
+        }
+      } else {
+        setSelectedSubFolder('');
+      }
+    }
+  }, [selectedFolder]);
 
   useEffect(() => {
     initData();
@@ -126,20 +153,69 @@ export default function Archive() {
         const snapshot = await getDocs(collection(db, 'archive_folders'));
         if (!snapshot.empty) {
           fetchedFolders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ArchiveFolder));
-          // Merge default built-in folders if not saved in Firestore yet
-          const existingIds = new Set(fetchedFolders.map(f => f.id));
-          DEFAULT_ARCHIVE_FOLDERS.forEach(defaultF => {
-            if (!existingIds.has(defaultF.id)) {
-              fetchedFolders.push(defaultF);
-            }
-          });
-        } else {
-          // Initialize defaults if empty
-          fetchedFolders = DEFAULT_ARCHIVE_FOLDERS;
         }
       } catch (error) {
         console.error("Error fetching archive folders:", error);
-        fetchedFolders = DEFAULT_ARCHIVE_FOLDERS;
+      }
+    }
+
+    // Merge default built-in folders if not saved in Firestore yet
+    const existingIds = new Set(fetchedFolders.map(f => f.id));
+    const existingNames = new Set(fetchedFolders.map(f => f.name.trim().toLowerCase()));
+
+    DEFAULT_ARCHIVE_FOLDERS.forEach(defaultF => {
+      const hasId = existingIds.has(defaultF.id);
+      const hasName = existingNames.has(defaultF.name.trim().toLowerCase());
+      if (!hasId && !hasName) {
+        fetchedFolders.push(defaultF);
+      }
+    });
+
+    // Ensure KOHHRAN COMMITTEE HUN CHAN DAN folder has all required 7 fields and the 3 sub-folders
+    const committeeFolder = fetchedFolders.find(f => 
+      f.id === 'kohhran_committee_hun_chan_dan' || 
+      f.name.trim().toLowerCase() === 'kohhran committee hun chan dan'
+    );
+    if (committeeFolder) {
+      const standardHeaders: ArchiveFieldDefinition[] = [
+        { id: 'hming', name: 'HMING', type: 'text', required: true },
+        { id: 'urlawk_zan', name: 'Urlawk Zan', type: 'text' },
+        { id: 'chawhma', name: 'Chawhma', type: 'text' },
+        { id: 'chawhnu', name: 'Chawhnu', type: 'text' },
+        { id: 'zan', name: 'Zan', type: 'text' },
+        { id: 'ruai_chhun', name: 'Ruai chhun', type: 'text' },
+        { id: 'ruai_zan', name: 'Ruai zan', type: 'text' }
+      ];
+      // If fields are empty or missing, ensure the standard 7 columns are set
+      if (!committeeFolder.fields || committeeFolder.fields.length === 0) {
+        committeeFolder.fields = standardHeaders;
+      }
+      // Ensure sub-folders are populated with Krismas, Kumthar, Good Friday & Easter
+      if (!committeeFolder.subFolders || committeeFolder.subFolders.length === 0) {
+        committeeFolder.subFolders = ['Krismas', 'Kumthar', 'Good Friday & Easter'];
+      }
+    }
+
+    // Save to local cache
+    localStorage.setItem('local_archive_folders', JSON.stringify(fetchedFolders));
+
+    // If Firebase is active and user is admin, automatically seed or sync KOHHRAN COMMITTEE HUN CHAN DAN to Firestore
+    if (isFirebaseConfigured && db && isAdmin) {
+      const targetDefault = DEFAULT_ARCHIVE_FOLDERS.find(f => f.id === 'kohhran_committee_hun_chan_dan');
+      if (targetDefault && (!existingIds.has(targetDefault.id) && !existingNames.has(targetDefault.name.trim().toLowerCase()))) {
+        try {
+          await setDoc(doc(db, 'archive_folders', targetDefault.id), targetDefault, { merge: true });
+        } catch (e) {
+          console.warn("Could not auto-seed folder in Firestore:", e);
+        }
+      } else if (committeeFolder && (!committeeFolder.subFolders || committeeFolder.subFolders.length < 3)) {
+        try {
+          await updateDoc(doc(db, 'archive_folders', committeeFolder.id), {
+            subFolders: ['Krismas', 'Kumthar', 'Good Friday & Easter']
+          });
+        } catch (e) {
+          console.warn("Could not sync subFolders in Firestore:", e);
+        }
       }
     }
 
@@ -278,11 +354,13 @@ export default function Archive() {
       setEditingFolder(folder);
       setFolderName(folder.name);
       setFolderDesc(folder.description || '');
+      setFolderSubFoldersStr(folder.subFolders ? folder.subFolders.join(', ') : '');
       setFolderFields([...folder.fields]);
     } else {
       setEditingFolder(null);
       setFolderName('');
       setFolderDesc('');
+      setFolderSubFoldersStr('');
       setFolderFields([
         { id: 'f_1', name: 'Title / Subject', type: 'text', required: true },
         { id: 'f_2', name: 'Details', type: 'textarea' },
@@ -324,13 +402,19 @@ export default function Archive() {
       return;
     }
 
+    const parsedSubFolders = folderSubFoldersStr
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
     const folderData: Partial<ArchiveFolder> = {
       name: folderName.trim(),
       description: folderDesc.trim(),
       fields: folderFields.map(f => ({
         ...f,
         name: f.name.trim()
-      }))
+      })),
+      ...(parsedSubFolders.length > 0 ? { subFolders: parsedSubFolders } : {})
     };
 
     if (!isFirebaseConfigured || !db) {
@@ -343,6 +427,7 @@ export default function Archive() {
           name: folderData.name!,
           description: folderData.description,
           fields: folderData.fields!,
+          subFolders: folderData.subFolders,
           isBuiltIn: false
         };
         updatedFolders.push(newFolder);
@@ -411,6 +496,196 @@ export default function Archive() {
     }
   };
 
+  // --- Dynamic Table Header Creation & Management Handlers ---
+  const openAddHeaderModal = () => {
+    setEditingHeaderField(null);
+    setHeaderName('');
+    setHeaderType('text');
+    setHeaderRequired(false);
+    setIsHeaderModalOpen(true);
+  };
+
+  const openEditHeaderModal = (field: ArchiveFieldDefinition) => {
+    setEditingHeaderField(field);
+    setHeaderName(field.name);
+    setHeaderType(field.type);
+    setHeaderRequired(field.required || false);
+    setIsHeaderModalOpen(true);
+  };
+
+  const handleSaveHeader = async () => {
+    if (!selectedFolder) return;
+    const trimmed = headerName.trim();
+    if (!trimmed) {
+      alert("Please enter a header name.");
+      return;
+    }
+
+    let updatedFields: ArchiveFieldDefinition[];
+
+    if (editingHeaderField) {
+      // Editing existing header
+      updatedFields = selectedFolder.fields.map(f => {
+        if (f.id === editingHeaderField.id) {
+          return {
+            ...f,
+            name: trimmed,
+            type: headerType,
+            required: headerRequired
+          };
+        }
+        return f;
+      });
+    } else {
+      // Adding new header
+      const newId = 'col_' + trimmed.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.random().toString(36).substr(2, 4);
+      const newField: ArchiveFieldDefinition = {
+        id: newId,
+        name: trimmed,
+        type: headerType,
+        required: headerRequired
+      };
+      updatedFields = [...selectedFolder.fields, newField];
+    }
+
+    await saveUpdatedFolderFields(updatedFields);
+    setIsHeaderModalOpen(false);
+  };
+
+  const handleDeleteHeader = async (field: ArchiveFieldDefinition) => {
+    if (!selectedFolder) return;
+    if (selectedFolder.fields.length <= 1) {
+      alert("The table must have at least one header column.");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to remove header "${field.name}" from the table? Existing record values for this column will remain in the database.`)) {
+      return;
+    }
+
+    const updatedFields = selectedFolder.fields.filter(f => f.id !== field.id);
+    await saveUpdatedFolderFields(updatedFields);
+  };
+
+  const saveUpdatedFolderFields = async (updatedFields: ArchiveFieldDefinition[]) => {
+    if (!selectedFolder) return;
+
+    const updatedFolder: ArchiveFolder = {
+      ...selectedFolder,
+      fields: updatedFields
+    };
+
+    const updatedFolders = folders.map(f => f.id === selectedFolder.id ? updatedFolder : f);
+    localStorage.setItem('local_archive_folders', JSON.stringify(updatedFolders));
+    setFolders(updatedFolders);
+    setSelectedFolder(updatedFolder);
+
+    if (isFirebaseConfigured && db) {
+      try {
+        await setDoc(doc(db, 'archive_folders', selectedFolder.id), { fields: updatedFields }, { merge: true });
+      } catch (err) {
+        console.error("Error saving updated fields to Firestore:", err);
+      }
+    }
+  };
+
+  // --- Sub-folder Navigation & Management Handlers ---
+  const openSubFolderModal = () => {
+    setNewSubFolderName('');
+    setIsSubFolderModalOpen(true);
+  };
+
+  const handleAddSubFolder = async () => {
+    if (!selectedFolder) return;
+    const trimmed = newSubFolderName.trim();
+    if (!trimmed) {
+      alert("Please enter a sub-folder name.");
+      return;
+    }
+
+    const existing = selectedFolder.subFolders || [];
+    if (existing.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
+      alert("A sub-folder with this name already exists.");
+      return;
+    }
+
+    const updatedSubFolders = [...existing, trimmed];
+    await saveUpdatedSubFolders(updatedSubFolders);
+    setSelectedSubFolder(trimmed);
+    setIsSubFolderModalOpen(false);
+  };
+
+  const handleDeleteSubFolder = async (subNameToDelete: string) => {
+    if (!selectedFolder) return;
+    if (!confirm(`Are you sure you want to delete sub-folder "${subNameToDelete}"?`)) return;
+
+    const existing = selectedFolder.subFolders || [];
+    const updatedSubFolders = existing.filter(s => s !== subNameToDelete);
+    await saveUpdatedSubFolders(updatedSubFolders);
+    if (selectedSubFolder === subNameToDelete) {
+      setSelectedSubFolder(updatedSubFolders[0] || '');
+    }
+  };
+
+  const saveUpdatedSubFolders = async (updatedSubFolders: string[]) => {
+    if (!selectedFolder) return;
+
+    const updatedFolder: ArchiveFolder = {
+      ...selectedFolder,
+      subFolders: updatedSubFolders
+    };
+
+    const updatedFolders = folders.map(f => f.id === selectedFolder.id ? updatedFolder : f);
+    localStorage.setItem('local_archive_folders', JSON.stringify(updatedFolders));
+    setFolders(updatedFolders);
+    setSelectedFolder(updatedFolder);
+
+    if (isFirebaseConfigured && db) {
+      try {
+        await setDoc(doc(db, 'archive_folders', selectedFolder.id), { subFolders: updatedSubFolders }, { merge: true });
+      } catch (err) {
+        console.error("Error saving sub-folders to Firestore:", err);
+      }
+    }
+  };
+
+  // Count records in a subfolder
+  const getSubFolderCount = (subName: string) => {
+    if (!selectedFolder || !selectedYear) return 0;
+    const firstSub = selectedFolder.subFolders?.[0];
+    return entries.filter(e => 
+      e.archiveYearId === selectedYear.id && 
+      e.folderId === selectedFolder.id && 
+      (e.subFolder === subName || (!e.subFolder && subName === firstSub))
+    ).length;
+  };
+
+  // Helper to safely get field value by ID, Name, or case-insensitive key
+  const getRecordFieldValue = (record: ArchiveEntry, field: ArchiveFieldDefinition): string => {
+    if (!record || !record.data) return '';
+    // 1. Exact match on field.id
+    if (record.data[field.id] !== undefined && record.data[field.id] !== null && record.data[field.id] !== '') {
+      return String(record.data[field.id]);
+    }
+    // 2. Exact match on field.name
+    if (record.data[field.name] !== undefined && record.data[field.name] !== null && record.data[field.name] !== '') {
+      return String(record.data[field.name]);
+    }
+    // 3. Normalized / case-insensitive match
+    const cleanFieldName = field.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanFieldId = field.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    for (const [k, v] of Object.entries(record.data)) {
+      if (v !== undefined && v !== null && v !== '') {
+        const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanK === cleanFieldName || cleanK === cleanFieldId) {
+          return String(v);
+        }
+      }
+    }
+    return '';
+  };
+
   // --- Entry Handlers ---
   const openEntryModal = (entry?: ArchiveEntry) => {
     if (!selectedFolder || !selectedYear) return;
@@ -419,16 +694,7 @@ export default function Archive() {
       setEditingEntry(entry);
       const initial: Record<string, any> = {};
       selectedFolder.fields.forEach(f => {
-        // Retrieve value matching field.id, field.name, or case-insensitive name
-        let val = entry.data[f.id];
-        if (val === undefined && entry.data[f.name] !== undefined) {
-          val = entry.data[f.name];
-        }
-        if (val === undefined) {
-          const matchKey = Object.keys(entry.data).find(k => k.trim().toLowerCase() === f.name.trim().toLowerCase() || k.trim().toLowerCase() === f.id.trim().toLowerCase());
-          if (matchKey) val = entry.data[matchKey];
-        }
-        initial[f.id] = val !== undefined && val !== null ? val : '';
+        initial[f.id] = getRecordFieldValue(entry, f);
       });
       setEntryFormData(initial);
     } else {
@@ -453,12 +719,16 @@ export default function Archive() {
       }
     }
 
-    const entryData = {
+    const entryData: any = {
       archiveYearId: selectedYear.id,
       folderId: selectedFolder.id,
       data: entryFormData,
       createdAt: new Date().toISOString()
     };
+
+    if (selectedFolder.subFolders && selectedFolder.subFolders.length > 0) {
+      entryData.subFolder = selectedSubFolder || selectedFolder.subFolders[0];
+    }
 
     // Special sync for Office Bearers folder to keep selectedYear.roles updated
     if (selectedFolder.id === 'office_bearers') {
@@ -501,7 +771,11 @@ export default function Archive() {
     if (!isFirebaseConfigured || !db) {
       let updatedEntries = [...entries];
       if (editingEntry && !editingEntry.id.startsWith('role_legacy_')) {
-        updatedEntries = updatedEntries.map(e => e.id === editingEntry.id ? { ...e, data: entryFormData } : e);
+        updatedEntries = updatedEntries.map(e => e.id === editingEntry.id ? { 
+          ...e, 
+          data: entryFormData,
+          subFolder: editingEntry.subFolder || (selectedFolder.subFolders && selectedFolder.subFolders.length > 0 ? (selectedSubFolder || selectedFolder.subFolders[0]) : undefined)
+        } : e);
       } else {
         const newEntry: ArchiveEntry = {
           id: 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -518,12 +792,16 @@ export default function Archive() {
 
     try {
       if (editingEntry?.id && !editingEntry.id.startsWith('role_legacy_')) {
-        await setDoc(doc(db, 'archive_entries', editingEntry.id), {
+        const updatePayload: any = {
           archiveYearId: selectedYear.id,
           folderId: selectedFolder.id,
           data: entryFormData,
           updatedAt: new Date().toISOString()
-        }, { merge: true });
+        };
+        if (selectedFolder.subFolders && selectedFolder.subFolders.length > 0) {
+          updatePayload.subFolder = editingEntry.subFolder || selectedSubFolder || selectedFolder.subFolders[0];
+        }
+        await setDoc(doc(db, 'archive_entries', editingEntry.id), updatePayload, { merge: true });
       } else {
         await addDoc(collection(db, 'archive_entries'), entryData);
       }
@@ -594,12 +872,16 @@ export default function Archive() {
     const currentList = getCurrentDisplayEntries();
     if (currentList.length === 0) return;
 
-    if (!confirm(`Are you sure you want to delete ALL ${currentList.length} records in "${selectedFolder.name}" for ${selectedYear.year}? This action cannot be undone.`)) {
+    const subNotice = (selectedFolder.subFolders && selectedFolder.subFolders.length > 0 && selectedSubFolder)
+      ? ` > "${selectedSubFolder}"`
+      : '';
+
+    if (!confirm(`Are you sure you want to delete ALL ${currentList.length} records in "${selectedFolder.name}${subNotice}" for ${selectedYear.year}? This action cannot be undone.`)) {
       return;
     }
 
     if (!isFirebaseConfigured || !db) {
-      const remainingEntries = entries.filter(e => !(e.archiveYearId === selectedYear.id && e.folderId === selectedFolder.id));
+      const remainingEntries = entries.filter(e => !currentList.some(cl => cl.id === e.id));
       localStorage.setItem('local_archive_entries', JSON.stringify(remainingEntries));
       setEntries(remainingEntries);
 
@@ -634,18 +916,53 @@ export default function Archive() {
     }
   };
 
-  // --- CSV Template & Export Handlers ---
+  // --- Excel & CSV Export / Template Handlers ---
+  const downloadExcelTemplate = () => {
+    if (!selectedFolder) return;
+
+    const headers = selectedFolder.fields.map(f => f.name);
+    // Create realistic sample row for the folder
+    let sampleRow: string[] = [];
+    if (selectedFolder.id === 'kohhran_committee_hun_chan_dan' || selectedFolder.name.includes('KOHHRAN COMMITTEE HUN CHAN DAN')) {
+      sampleRow = ['Pu Lallawmawma', 'Tantu', 'Thuhriltu', 'Hruaitu', 'Thuhriltu', 'Puanphurtu', 'Ruai hruaitu'];
+    } else if (selectedFolder.id === 'office_bearers') {
+      sampleRow = ['Kohhran Chairman', 'Pu RK Thanga', '9862000000', 'Senior Elder'];
+    } else {
+      sampleRow = selectedFolder.fields.map(f => {
+        if (f.type === 'date') return '2026-10-15';
+        if (f.type === 'number') return '100';
+        if (f.type === 'file') return 'https://example.com/document.pdf';
+        return `Sample ${f.name}`;
+      });
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, sampleRow]);
+    worksheet['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 5, 16) }));
+
+    const workbook = XLSX.utils.book_new();
+    const safeSheetName = `${selectedFolder.name.substring(0, 18)} ${selectedSubFolder || ''}`.trim().substring(0, 31).replace(/[\\/?*[\]]/g, '');
+    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName || 'Template');
+
+    const subPart = selectedSubFolder ? `_${selectedSubFolder.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+    const cleanFileName = `${selectedFolder.name.replace(/[^a-zA-Z0-9]/g, '_')}${subPart}_template.xlsx`;
+    XLSX.writeFile(workbook, cleanFileName);
+  };
+
   const downloadCSVTemplate = () => {
     if (!selectedFolder) return;
 
     const headers = selectedFolder.fields.map(f => f.name);
-    // Create an example row
-    const exampleRow = selectedFolder.fields.map(f => {
-      if (f.type === 'date') return 'YYYY-MM-DD';
-      if (f.type === 'number') return '123';
-      if (f.type === 'file') return 'https://example.com/file.pdf';
-      return `Sample ${f.name}`;
-    });
+    let exampleRow: string[] = [];
+    if (selectedFolder.id === 'kohhran_committee_hun_chan_dan' || selectedFolder.name.includes('KOHHRAN COMMITTEE HUN CHAN DAN')) {
+      exampleRow = ['Pu Lallawmawma', 'Tantu', 'Thuhriltu', 'Hruaitu', 'Thuhriltu', 'Puanphurtu', 'Ruai hruaitu'];
+    } else {
+      exampleRow = selectedFolder.fields.map(f => {
+        if (f.type === 'date') return 'YYYY-MM-DD';
+        if (f.type === 'number') return '123';
+        if (f.type === 'file') return 'https://example.com/file.pdf';
+        return `Sample ${f.name}`;
+      });
+    }
 
     const csvContent = [
       headers.map(h => `"${h.replace(/"/g, '""')}"`).join(','),
@@ -656,10 +973,43 @@ export default function Archive() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `${selectedFolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_template.csv`);
+    const subPart = selectedSubFolder ? `_${selectedSubFolder.replace(/[^a-z0-9]/gi, '_').toLowerCase()}` : '';
+    link.setAttribute('download', `${selectedFolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}${subPart}_template.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const exportFolderExcel = () => {
+    if (!selectedFolder || !selectedYear) return;
+
+    const currentRecords = getCurrentDisplayEntries();
+    const headers = selectedFolder.fields.map(f => f.name);
+
+    const rows = currentRecords.map(rec => {
+      return selectedFolder.fields.map(f => getRecordFieldValue(rec, f));
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+    // Auto-fit column widths nicely based on content
+    const colWidths = headers.map((header, colIdx) => {
+      let maxLen = header.length;
+      rows.forEach(row => {
+        const cellLen = (row[colIdx] ?? '').toString().length;
+        if (cellLen > maxLen) maxLen = cellLen;
+      });
+      return { wch: Math.min(Math.max(maxLen + 4, 14), 45) };
+    });
+    worksheet['!cols'] = colWidths;
+
+    const workbook = XLSX.utils.book_new();
+    const safeSheetName = `${selectedFolder.name.substring(0, 18)} ${selectedSubFolder || ''}`.trim().substring(0, 31).replace(/[\\/?*[\]]/g, '');
+    XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName || 'Archive');
+
+    const subPart = selectedSubFolder ? `_${selectedSubFolder.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+    const cleanFileName = `${selectedFolder.name.replace(/[^a-zA-Z0-9]/g, '_')}${subPart}_${selectedYear.year}.xlsx`;
+    XLSX.writeFile(workbook, cleanFileName);
   };
 
   const exportCurrentFolderCSV = () => {
@@ -669,10 +1019,7 @@ export default function Archive() {
     const headers = selectedFolder.fields.map(f => f.name);
 
     const rows = currentRecords.map(rec => {
-      return selectedFolder.fields.map(f => {
-        const val = rec.data[f.id] || rec.data[f.name] || '';
-        return (val ?? '').toString();
-      });
+      return selectedFolder.fields.map(f => getRecordFieldValue(rec, f));
     });
 
     const csvContent = [
@@ -684,67 +1031,112 @@ export default function Archive() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `${selectedYear.year}_${selectedFolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.csv`);
+    const subPart = selectedSubFolder ? `_${selectedSubFolder.replace(/[^a-z0-9]/gi, '_').toLowerCase()}` : '';
+    link.setAttribute('download', `${selectedYear.year}_${selectedFolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}${subPart}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // --- CSV Import Parser ---
-  const handleCSVFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- Unified Excel (.xlsx, .xls) and CSV Import Handler ---
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedFolder) return;
 
     setUploadFileName(file.name);
-    const reader = new FileReader();
+    const fileNameLower = file.name.toLowerCase();
 
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+    try {
+      let rawGrid: any[][] = [];
 
-      const parsedLines = parseCSV(text);
-      if (parsedLines.length < 2) {
-        alert("The uploaded CSV file is empty or missing data rows.");
+      if (fileNameLower.endsWith('.csv')) {
+        const text = await file.text();
+        rawGrid = parseCSV(text);
+      } else {
+        // Excel file (.xlsx, .xls)
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+          alert("The uploaded Excel workbook contains no sheets.");
+          return;
+        }
+        const worksheet = workbook.Sheets[firstSheetName];
+        rawGrid = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, defval: '' });
+      }
+
+      if (!rawGrid || rawGrid.length < 2) {
+        alert("The uploaded file is empty or missing data rows.");
         return;
       }
 
-      const headers = parsedLines[0].map(h => h.trim().toLowerCase());
-      const dataRows = parsedLines.slice(1);
+      // Detect header row by scanning first 5 rows for highest match count
+      let headerRowIndex = 0;
+      let maxMatches = -1;
 
-      // Map header strings to field IDs
+      for (let r = 0; r < Math.min(5, rawGrid.length); r++) {
+        const row = rawGrid[r] || [];
+        const rowStrings = row.map((cell: any) => (cell ?? '').toString().trim().toLowerCase());
+        let matches = 0;
+        selectedFolder.fields.forEach(field => {
+          const fn = field.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const fi = field.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (rowStrings.some((s: string) => {
+            const cleanS = s.replace(/[^a-z0-9]/g, '');
+            return cleanS === fn || cleanS === fi;
+          })) {
+            matches++;
+          }
+        });
+        if (matches > maxMatches) {
+          maxMatches = matches;
+          headerRowIndex = r;
+        }
+      }
+
+      const rawHeaders = (rawGrid[headerRowIndex] || []).map((h: any) => (h ?? '').toString().trim());
+      const headerNamesLower = rawHeaders.map(h => h.toLowerCase());
+      const dataRows = rawGrid.slice(headerRowIndex + 1);
+
       const mappedEntries: Record<string, any>[] = [];
 
       dataRows.forEach(row => {
+        if (!Array.isArray(row)) return;
         const rowData: Record<string, any> = {};
         let hasValue = false;
 
-        selectedFolder.fields.forEach(field => {
+        selectedFolder.fields.forEach((field, fIdx) => {
           const fieldNameLower = field.name.trim().toLowerCase();
           const cleanFieldName = fieldNameLower.replace(/[^a-z0-9]/g, '');
-          
-          // Find matching column index by exact or clean match only
-          // We strictly avoid substring (.includes) matching because role titles 
-          // often share words (e.g. "Chairman" and "Vice Chairman", or "Secretary" and "Asst. Secretary")
-          // which causes data duplication across columns.
-          const colIdx = headers.findIndex(h => {
+          const cleanFieldId = field.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          // Find matching column index in file
+          let colIdx = headerNamesLower.findIndex(h => {
             const cleanH = h.replace(/[^a-z0-9]/g, '');
-            return h === fieldNameLower || cleanH === cleanFieldName;
+            return cleanH === cleanFieldName || cleanH === cleanFieldId;
           });
 
-          if (colIdx !== -1 && row[colIdx] !== undefined) {
-            rowData[field.id] = row[colIdx].trim();
-            if (row[colIdx].trim()) hasValue = true;
+          // Fallback to column index if no headers matched at all
+          if (colIdx === -1 && maxMatches === 0 && row[fIdx] !== undefined) {
+            colIdx = fIdx;
+          }
+
+          if (colIdx !== -1 && row[colIdx] !== undefined && row[colIdx] !== null) {
+            const val = String(row[colIdx]).trim();
+            rowData[field.id] = val;
+            if (val) hasValue = true;
           } else {
             rowData[field.id] = '';
           }
         });
 
-        // Fallback: if header index didn't match cleanly, map by index position
-        if (!hasValue && row.length > 0) {
+        // Fallback: if not mapped yet, map by index position if row has content
+        if (!hasValue && row.some((c: any) => c !== undefined && c !== null && String(c).trim() !== '')) {
           selectedFolder.fields.forEach((field, i) => {
-            if (row[i] !== undefined) {
-              rowData[field.id] = row[i].trim();
-              if (row[i].trim()) hasValue = true;
+            if (row[i] !== undefined && row[i] !== null) {
+              const val = String(row[i]).trim();
+              rowData[field.id] = val;
+              if (val) hasValue = true;
             }
           });
         }
@@ -754,12 +1146,19 @@ export default function Archive() {
         }
       });
 
+      if (mappedEntries.length === 0) {
+        alert("No valid data rows could be imported from the file. Please check column headers.");
+        return;
+      }
+
       setUploadPreview(mappedEntries);
       setIsUploadModalOpen(true);
-    };
-
-    reader.readAsText(file);
-    e.target.value = '';
+    } catch (err: any) {
+      console.error("Error reading file:", err);
+      alert("Failed to read file: " + (err?.message || "Unknown error"));
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const parseCSV = (text: string): string[][] => {
@@ -808,10 +1207,15 @@ export default function Archive() {
   const handleConfirmImport = async () => {
     if (!selectedFolder || !selectedYear || uploadPreview.length === 0) return;
 
+    const targetSubFolder = (selectedFolder.subFolders && selectedFolder.subFolders.length > 0)
+      ? (selectedSubFolder || selectedFolder.subFolders[0])
+      : undefined;
+
     const newEntries: ArchiveEntry[] = uploadPreview.map(itemData => ({
       id: 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
       archiveYearId: selectedYear.id,
       folderId: selectedFolder.id,
+      subFolder: targetSubFolder,
       data: itemData,
       createdAt: new Date().toISOString()
     }));
@@ -854,12 +1258,16 @@ export default function Archive() {
 
     try {
       for (const entry of newEntries) {
-        await addDoc(collection(db, 'archive_entries'), {
+        const payload: any = {
           archiveYearId: entry.archiveYearId,
           folderId: entry.folderId,
           data: entry.data,
           createdAt: entry.createdAt
-        });
+        };
+        if (entry.subFolder) {
+          payload.subFolder = entry.subFolder;
+        }
+        await addDoc(collection(db, 'archive_entries'), payload);
       }
       setIsUploadModalOpen(false);
       setUploadPreview([]);
@@ -867,7 +1275,7 @@ export default function Archive() {
       alert(`Successfully imported ${newEntries.length} records!`);
     } catch (error) {
       console.error("Error importing entries:", error);
-      alert("Failed to import CSV entries.");
+      alert("Failed to import entries into database.");
     }
   };
 
@@ -948,7 +1356,19 @@ export default function Archive() {
   const getCurrentDisplayEntries = () => {
     if (!selectedFolder || !selectedYear) return [];
 
-    let folderEntries = entries.filter(e => e.archiveYearId === selectedYear.id && e.folderId === selectedFolder.id);
+    let folderEntries = entries.filter(e => {
+      if (e.archiveYearId !== selectedYear.id || e.folderId !== selectedFolder.id) return false;
+      if (selectedFolder.subFolders && selectedFolder.subFolders.length > 0) {
+        const firstSub = selectedFolder.subFolders[0];
+        if (e.subFolder) {
+          return e.subFolder === selectedSubFolder;
+        } else {
+          // Legacy records without explicit subFolder default to the first sub-folder (e.g. Krismas)
+          return selectedSubFolder === firstSub;
+        }
+      }
+      return true;
+    });
 
     // If active folder is office_bearers and no explicit entries exist yet, convert selectedYear.roles to dynamic display format
     if (selectedFolder.id === 'office_bearers' && folderEntries.length === 0 && selectedYear.roles && selectedYear.roles.length > 0) {
@@ -1252,7 +1672,7 @@ export default function Archive() {
                           value={searchQuery}
                           onChange={e => setSearchQuery(e.target.value)}
                           placeholder="Search records..."
-                          className="pl-7 pr-3 py-1.5 bg-white border border-[#ecece0] rounded-lg text-xs font-sans focus:outline-none focus:ring-1 focus:ring-[#5A5A40] w-40 sm:w-48"
+                          className="pl-7 pr-3 py-1.5 bg-white border border-[#ecece0] rounded-lg text-xs font-sans focus:outline-none focus:ring-1 focus:ring-[#5A5A40] w-36 sm:w-44"
                         />
                         {searchQuery && (
                           <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
@@ -1261,39 +1681,48 @@ export default function Archive() {
                         )}
                       </div>
 
-                      {/* Template Download Button */}
+                      {/* Excel (.xlsx) Download Button */}
                       <button 
-                        onClick={downloadCSVTemplate}
-                        className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition shadow-sm"
-                        title="Download CSV Template tailored for this folder's fields"
+                        onClick={exportFolderExcel}
+                        className="bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition shadow-sm"
+                        title="Download / Export all records in this folder as Excel spreadsheet (.xlsx)"
                       >
-                        <FileSpreadsheet className="w-3.5 h-3.5 text-[#5A5A40]" />
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                        Download Excel
+                      </button>
+
+                      {/* Excel Template (.xlsx) */}
+                      <button 
+                        onClick={downloadExcelTemplate}
+                        className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition shadow-sm"
+                        title="Download blank Excel (.xlsx) template with column headers"
+                      >
+                        <Download className="w-3.5 h-3.5 text-stone-500" />
                         Template
                       </button>
 
-                      {/* Export CSV Data Button */}
-                      <button 
-                        onClick={exportCurrentFolderCSV}
-                        className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition shadow-sm"
-                        title="Export all current records to CSV"
-                      >
-                        <Download className="w-3.5 h-3.5 text-[#5A5A40]" />
-                        Export
-                      </button>
-
-                      {/* Admin CSV Upload Button */}
+                      {/* Admin Import Excel (.xlsx / .xls / .csv) Button */}
                       {isAdmin && (
-                        <label className="bg-white border border-[#ecece0] text-stone-700 hover:text-[#5A5A40] px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition cursor-pointer shadow-sm">
-                          <Upload className="w-3.5 h-3.5 text-[#5A5A40]" />
-                          Upload CSV
+                        <label className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition cursor-pointer shadow-sm">
+                          <Upload className="w-3.5 h-3.5" />
+                          Import Excel
                           <input 
                             type="file" 
-                            accept=".csv" 
-                            onChange={handleCSVFileUpload}
+                            accept=".xlsx, .xls, .csv" 
+                            onChange={handleFileUpload}
                             className="hidden" 
                           />
                         </label>
                       )}
+
+                      {/* Export CSV Data Button */}
+                      <button 
+                        onClick={exportCurrentFolderCSV}
+                        className="bg-white border border-[#ecece0] text-stone-600 hover:text-[#5A5A40] px-2 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1 transition shadow-sm"
+                        title="Export records as CSV"
+                      >
+                        CSV
+                      </button>
 
                       {/* Admin Clear All Records Button */}
                       {isAdmin && displayEntries.length > 0 && (
@@ -1307,11 +1736,24 @@ export default function Archive() {
                         </button>
                       )}
 
+                      {/* Admin Add Header Button */}
+                      {isAdmin && (
+                        <button 
+                          onClick={openAddHeaderModal}
+                          className="bg-stone-100 border border-stone-300 hover:bg-stone-200 text-stone-800 px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition shadow-sm"
+                          title="Create / Add a new column header to this table"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-[#5A5A40]" />
+                          <Columns3 className="w-3.5 h-3.5 text-[#5A5A40]" />
+                          Add Header
+                        </button>
+                      )}
+
                       {/* Admin Add Entry Button */}
                       {isAdmin && (
                         <button 
                           onClick={() => openEntryModal()}
-                          className="bg-[#5A5A40] text-white px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider hover:bg-[#4a4a35] transition font-sans flex items-center gap-1.5 shrink-0 shadow-sm"
+                          className="bg-[#5A5A40] text-white px-3.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider hover:bg-[#4a4a35] transition font-sans flex items-center gap-1.5 shrink-0 shadow-sm"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           Add Record
@@ -1320,6 +1762,73 @@ export default function Archive() {
                     </div>
                   </div>
                 </div>
+
+                {/* Sub-Folders Navigation Bar (Displayed Before the Table) */}
+                {selectedFolder.subFolders && selectedFolder.subFolders.length > 0 && (
+                  <div className="bg-[#fcfaf7] border-b border-[#e0e0d5] px-4 py-2.5 sm:px-5 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1.5 text-stone-500 mr-1">
+                        <FolderTree className="w-4 h-4 text-[#5A5A40]" />
+                        <span className="text-[10px] uppercase font-bold tracking-widest font-sans">
+                          Sub-Folders:
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {selectedFolder.subFolders.map(sub => {
+                          const isActive = selectedSubFolder === sub;
+                          const count = getSubFolderCount(sub);
+
+                          // Visual icon prefix for key Christian calendar festivals
+                          let iconBadge = '';
+                          if (/krismas|christmas/i.test(sub)) iconBadge = '🎄 ';
+                          else if (/kumthar|new year/i.test(sub)) iconBadge = '🎆 ';
+                          else if (/good friday|easter/i.test(sub)) iconBadge = '✝️ ';
+
+                          return (
+                            <div key={sub} className="relative group flex items-center">
+                              <button
+                                onClick={() => setSelectedSubFolder(sub)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold font-sans transition-all flex items-center gap-1.5 border shadow-sm ${
+                                  isActive
+                                    ? 'bg-[#5A5A40] text-white border-[#5A5A40]'
+                                    : 'bg-white text-stone-700 border-[#ecece0] hover:border-[#5A5A40]/50 hover:text-[#5A5A40]'
+                                }`}
+                              >
+                                <span>{iconBadge}{sub}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                                  isActive ? 'bg-white/25 text-white' : 'bg-stone-100 text-stone-500'
+                                }`}>
+                                  {count}
+                                </span>
+                              </button>
+
+                              {/* Admin Delete Sub-Folder */}
+                              {isAdmin && selectedFolder.subFolders && selectedFolder.subFolders.length > 1 && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteSubFolder(sub); }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 p-1 text-stone-400 hover:text-red-500 rounded-md hover:bg-red-50"
+                                  title={`Delete sub-folder "${sub}"`}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Admin Add Sub-Folder Button */}
+                    {isAdmin && (
+                      <button
+                        onClick={openSubFolderModal}
+                        className="text-[10px] font-bold uppercase tracking-widest text-[#5A5A40] hover:bg-[#5A5A40] hover:text-white px-3 py-1.5 rounded-xl border border-dashed border-[#5A5A40]/40 flex items-center gap-1.5 transition font-sans bg-white shadow-xs"
+                      >
+                        <Plus className="w-3 h-3" /> Add Sub-Folder
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Table of Entries */}
                 <div className="overflow-x-auto w-full">
@@ -1337,25 +1846,66 @@ export default function Archive() {
                             <th 
                               key={field.id} 
                               scope="col" 
-                              onClick={() => handleSort(field.id)}
-                              className="px-4 py-3 text-left text-[10px] font-bold text-stone-500 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-[#5A5A40] transition select-none group"
-                              title={`Click to sort by ${field.name}`}
+                              className="px-4 py-3 text-left text-[10px] font-bold text-stone-500 uppercase tracking-widest whitespace-nowrap group select-none relative"
                             >
-                              <div className="flex items-center gap-1.5">
-                                <span>{field.name}</span>
-                                {isSorted ? (
-                                  sortDirection === 'desc' ? (
-                                    <ArrowDown className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                              <div className="flex items-center justify-between gap-2">
+                                <div 
+                                  onClick={() => handleSort(field.id)}
+                                  className="flex items-center gap-1.5 cursor-pointer hover:text-[#5A5A40] transition"
+                                  title={`Click to sort by ${field.name}`}
+                                >
+                                  <span>{field.name}</span>
+                                  {field.required && <span className="text-red-500 font-normal">*</span>}
+                                  {isSorted ? (
+                                    sortDirection === 'desc' ? (
+                                      <ArrowDown className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                                    ) : (
+                                      <ArrowUp className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                                    )
                                   ) : (
-                                    <ArrowUp className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="w-3 h-3 text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                    <ArrowUpDown className="w-3 h-3 text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                  )}
+                                </div>
+
+                                {/* Admin Header Controls: Edit & Delete */}
+                                {isAdmin && (
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-stone-100/90 rounded px-1 py-0.5 border border-stone-200">
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); openEditHeaderModal(field); }}
+                                      className="p-0.5 text-stone-500 hover:text-[#5A5A40] transition"
+                                      title={`Edit Header "${field.name}"`}
+                                    >
+                                      <Pencil className="w-2.5 h-2.5" />
+                                    </button>
+                                    {selectedFolder.fields.length > 1 && (
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteHeader(field); }}
+                                        className="p-0.5 text-stone-400 hover:text-red-500 transition"
+                                        title={`Delete Column "${field.name}"`}
+                                      >
+                                        <Trash2 className="w-2.5 h-2.5" />
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </th>
                           );
                         })}
+
+                        {/* Admin Inline "+ Header" Column Header */}
+                        {isAdmin && (
+                          <th scope="col" className="px-3 py-3 text-left whitespace-nowrap w-24">
+                            <button 
+                              onClick={openAddHeaderModal}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-stone-100 hover:bg-[#5A5A40] hover:text-white text-[#5A5A40] rounded-lg text-[9px] uppercase font-bold tracking-widest transition border border-dashed border-[#5A5A40]/40"
+                              title="Create a new header column for this table"
+                            >
+                              <Plus className="w-3 h-3" /> Header
+                            </button>
+                          </th>
+                        )}
+
                         {isAdmin && (
                           <th scope="col" className="px-4 py-3 text-right text-[10px] font-bold text-stone-400 uppercase tracking-widest w-20">
                             Actions
@@ -1371,11 +1921,7 @@ export default function Archive() {
                           </td>
 
                           {selectedFolder.fields.map(field => {
-                            const rawVal = record.data[field.id] !== undefined 
-                              ? record.data[field.id] 
-                              : record.data[field.name];
-
-                            const strVal = (rawVal ?? '').toString();
+                            const strVal = getRecordFieldValue(record, field);
 
                             // Render URL / File fields as clickable links
                             const isLink = field.type === 'file' || strVal.startsWith('http://') || strVal.startsWith('https://');
@@ -1398,6 +1944,13 @@ export default function Archive() {
                               </td>
                             );
                           })}
+
+                          {/* Placeholder cell for Admin inline Header column */}
+                          {isAdmin && (
+                            <td className="px-3 py-3 whitespace-nowrap text-stone-200 text-xs">
+                              -
+                            </td>
+                          )}
 
                           {isAdmin && (
                             <td className="px-4 py-3 whitespace-nowrap text-right text-xs">
@@ -1424,8 +1977,8 @@ export default function Archive() {
 
                       {displayEntries.length === 0 && (
                         <tr>
-                          <td colSpan={selectedFolder.fields.length + (isAdmin ? 2 : 1)} className="px-6 py-12 text-center text-sm text-stone-500 italic font-sans">
-                            {searchQuery ? 'No records match your search filter.' : `No entries found in "${selectedFolder.name}" for ${selectedYear.year}. Click "Add Record" or "Upload CSV" to begin.`}
+                          <td colSpan={selectedFolder.fields.length + (isAdmin ? 3 : 1)} className="px-6 py-12 text-center text-sm text-stone-500 italic font-sans">
+                            {searchQuery ? 'No records match your search filter.' : `No entries found in "${selectedFolder.name}${selectedSubFolder ? ' > ' + selectedSubFolder : ''}" for ${selectedYear.year}. Click "Add Record" or "Import Excel" to begin.`}
                           </td>
                         </tr>
                       )}
@@ -1573,6 +2126,22 @@ export default function Archive() {
                 />
               </div>
 
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">
+                  Sub-Folders (Optional, comma-separated)
+                </label>
+                <input 
+                  type="text" 
+                  value={folderSubFoldersStr} 
+                  onChange={e => setFolderSubFoldersStr(e.target.value)}
+                  placeholder="e.g. Krismas, Kumthar, Good Friday & Easter"
+                  className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                />
+                <p className="text-[11px] text-stone-400 mt-1">
+                  Specify sub-folders separated by commas (e.g. Krismas, Kumthar, Good Friday & Easter). Records will be partitioned by sub-folder tabs.
+                </p>
+              </div>
+
               {/* Custom Fields Definition Editor */}
               <div className="space-y-3">
                 <div className="flex justify-between items-end">
@@ -1677,7 +2246,7 @@ export default function Archive() {
             <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white shrink-0">
               <div>
                 <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider font-sans block">
-                  {selectedFolder.name} ({selectedYear?.year})
+                  {selectedFolder.name}{selectedSubFolder ? ` > ${selectedSubFolder}` : ''} ({selectedYear?.year})
                 </span>
                 <h2 className="text-xl font-serif italic text-[#5A5A40]">
                   {editingEntry ? 'Edit Archive Record' : 'Add New Archive Record'}
@@ -1751,7 +2320,7 @@ export default function Archive() {
         </div>
       )}
 
-      {/* --- MODAL 4: CSV Upload Preview Modal --- */}
+      {/* --- MODAL 4: CSV / Excel Upload Preview Modal --- */}
       {isUploadModalOpen && selectedFolder && (
         <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-3xl shadow-xl border border-[#e0e0d5] overflow-hidden max-h-[90vh] flex flex-col">
@@ -1761,7 +2330,7 @@ export default function Archive() {
                   Import Preview ({uploadFileName})
                 </span>
                 <h2 className="text-xl font-serif italic text-[#5A5A40]">
-                  Confirm CSV Import into "{selectedFolder.name}"
+                  Confirm Excel / CSV Import into "{selectedFolder.name}{selectedSubFolder ? ` > ${selectedSubFolder}` : ''}"
                 </h2>
               </div>
               <button onClick={() => setIsUploadModalOpen(false)} className="p-2 hover:bg-stone-100 rounded-full text-stone-500">
@@ -1772,7 +2341,7 @@ export default function Archive() {
             <div className="p-6 overflow-y-auto space-y-4 font-sans">
               <div className="flex items-center justify-between text-xs text-stone-600 bg-amber-50 border border-amber-200 p-3 rounded-xl">
                 <span>
-                  Found <strong>{uploadPreview.length}</strong> record(s) ready to import for <strong>{selectedYear?.year}</strong>.
+                  Found <strong>{uploadPreview.length}</strong> record(s) ready to import into <strong>{selectedFolder.name}{selectedSubFolder ? ` (${selectedSubFolder})` : ''}</strong> for <strong>{selectedYear?.year}</strong>.
                 </span>
                 <span className="text-[10px] font-bold uppercase text-amber-700 tracking-wider">
                   Mapped to {selectedFolder.fields.length} Custom Fields
@@ -1820,6 +2389,163 @@ export default function Archive() {
               >
                 <Check className="w-4 h-4" />
                 Confirm Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 5: Admin Create / Edit Table Header --- */}
+      {isHeaderModalOpen && selectedFolder && (
+        <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-md shadow-xl border border-[#e0e0d5] overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white shrink-0">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider font-sans block">
+                  {selectedFolder.name}
+                </span>
+                <h2 className="text-xl font-serif italic text-[#5A5A40]">
+                  {editingHeaderField ? `Edit Header: "${editingHeaderField.name}"` : 'Create New Table Header'}
+                </h2>
+              </div>
+              <button onClick={() => setIsHeaderModalOpen(false)} className="p-2 hover:bg-stone-100 rounded-full text-stone-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 font-sans">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">
+                  Header Name / Title *
+                </label>
+                <input 
+                  type="text" 
+                  value={headerName} 
+                  onChange={e => setHeaderName(e.target.value)}
+                  placeholder="e.g. Ruai Chhumtu, Phone Number, Remarks"
+                  className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm font-semibold text-[#5A5A40] focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                  autoFocus
+                />
+                <p className="text-[11px] text-stone-400 mt-1">
+                  This text will appear as the column header in the table and in Excel downloads.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">
+                  Data Type
+                </label>
+                <select 
+                  value={headerType}
+                  onChange={e => setHeaderType(e.target.value as any)}
+                  className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm font-sans focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                >
+                  <option value="text">Short Text (e.g. Names, Roles, Duty assignments)</option>
+                  <option value="textarea">Long Text / Paragraph (e.g. Descriptions, Notes)</option>
+                  <option value="date">Date (YYYY-MM-DD)</option>
+                  <option value="number">Number (Amounts, Counts)</option>
+                  <option value="file">File / URL Link (Attachments, Google Drive)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input 
+                  type="checkbox"
+                  id="header_req_check"
+                  checked={headerRequired}
+                  onChange={e => setHeaderRequired(e.target.checked)}
+                  className="w-4 h-4 accent-[#5A5A40] rounded"
+                />
+                <label htmlFor="header_req_check" className="text-xs text-stone-700 select-none cursor-pointer">
+                  Required field when adding or editing a record
+                </label>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 shrink-0">
+              <button 
+                onClick={() => setIsHeaderModalOpen(false)}
+                className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest text-stone-500 hover:bg-stone-50 font-sans border border-[#ecece0]"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveHeader}
+                className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest bg-[#5A5A40] text-white hover:bg-[#4a4a35] font-sans flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                {editingHeaderField ? 'Update Header' : 'Add Header to Table'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 6: Admin Add Sub-Folder --- */}
+      {isSubFolderModalOpen && selectedFolder && (
+        <div className="fixed inset-0 z-50 bg-stone-900/50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#f5f5f0] rounded-[32px] w-full max-w-md shadow-xl border border-[#e0e0d5] overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-[#e0e0d5] flex justify-between items-center bg-white shrink-0">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-stone-400 tracking-wider font-sans block">
+                  {selectedFolder.name}
+                </span>
+                <h2 className="text-xl font-serif italic text-[#5A5A40]">
+                  Add Sub-Folder
+                </h2>
+              </div>
+              <button onClick={() => setIsSubFolderModalOpen(false)} className="p-2 hover:bg-stone-100 rounded-full text-stone-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 font-sans">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1">
+                  Sub-Folder Title *
+                </label>
+                <input 
+                  type="text" 
+                  value={newSubFolderName} 
+                  onChange={e => setNewSubFolderName(e.target.value)}
+                  placeholder="e.g. Krismas, Kumthar, Good Friday & Easter, Centenary"
+                  className="w-full p-3 bg-white border border-[#ecece0] rounded-xl text-sm font-semibold text-[#5A5A40] focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+                  autoFocus
+                />
+                <p className="text-[11px] text-stone-400 mt-1">
+                  Records in this folder will be segregated under this sub-folder tab.
+                </p>
+              </div>
+
+              {selectedFolder.subFolders && selectedFolder.subFolders.length > 0 && (
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1.5">
+                    Existing Sub-Folders
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedFolder.subFolders.map(s => (
+                      <span key={s} className="px-2.5 py-1 bg-white border border-[#ecece0] rounded-lg text-xs font-semibold text-stone-600">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-[#e0e0d5] bg-white flex justify-end gap-3 shrink-0">
+              <button 
+                onClick={() => setIsSubFolderModalOpen(false)}
+                className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest text-stone-500 hover:bg-stone-50 font-sans border border-[#ecece0]"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAddSubFolder}
+                className="px-6 py-2 rounded-xl text-xs uppercase font-bold tracking-widest bg-[#5A5A40] text-white hover:bg-[#4a4a35] font-sans flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                Add Sub-Folder
               </button>
             </div>
           </div>

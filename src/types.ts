@@ -207,14 +207,17 @@ export interface ArchiveFolder {
   description?: string;
   isBuiltIn?: boolean;
   fields: ArchiveFieldDefinition[];
+  subFolders?: string[];
 }
 
 export interface ArchiveEntry {
   id: string;
   archiveYearId: string; // or year
   folderId: string;
+  subFolder?: string; // Sub-folder name (e.g. 'Krismas', 'Kumthar', 'Good Friday & Easter')
   data: Record<string, any>;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ArchiveRole {
@@ -232,6 +235,22 @@ export interface ArchiveYear {
 }
 
 export const DEFAULT_ARCHIVE_FOLDERS: ArchiveFolder[] = [
+  {
+    id: 'kohhran_committee_hun_chan_dan',
+    name: 'KOHHRAN COMMITTEE HUN CHAN DAN',
+    description: 'Kohhran Committee rawngbawltute hun chan dan ruahmanna',
+    isBuiltIn: true,
+    subFolders: ['Krismas', 'Kumthar', 'Good Friday & Easter'],
+    fields: [
+      { id: 'hming', name: 'HMING', type: 'text', required: true },
+      { id: 'urlawk_zan', name: 'Urlawk Zan', type: 'text' },
+      { id: 'chawhma', name: 'Chawhma', type: 'text' },
+      { id: 'chawhnu', name: 'Chawhnu', type: 'text' },
+      { id: 'zan', name: 'Zan', type: 'text' },
+      { id: 'ruai_chhun', name: 'Ruai chhun', type: 'text' },
+      { id: 'ruai_zan', name: 'Ruai zan', type: 'text' }
+    ]
+  },
   {
     id: 'office_bearers',
     name: 'Office Bearers (Rawngbawltu)',
