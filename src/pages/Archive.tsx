@@ -75,8 +75,9 @@ export default function Archive() {
   const [uploadPreview, setUploadPreview] = useState<Record<string, any>[]>([]);
   const [uploadFileName, setUploadFileName] = useState('');
 
-  // Synchronize active sub-folder when selected folder changes
+  // Synchronize active sub-folder and reset sort order when folder changes
   useEffect(() => {
+    setSortField(null);
     if (selectedFolder) {
       if (selectedFolder.subFolders && selectedFolder.subFolders.length > 0) {
         if (!selectedSubFolder || !selectedFolder.subFolders.includes(selectedSubFolder)) {
@@ -87,6 +88,11 @@ export default function Archive() {
       }
     }
   }, [selectedFolder]);
+
+  // Reset sort when switching sub-folders so entries stay in admin entry order
+  useEffect(() => {
+    setSortField(null);
+  }, [selectedSubFolder]);
 
   useEffect(() => {
     initData();
@@ -246,6 +252,19 @@ export default function Archive() {
         console.error("Error fetching archive entries:", error);
       }
     }
+
+    // Preserve natural admin entry order (by explicit order index or earliest createdAt first)
+    fetchedEntries.sort((a, b) => {
+      if (typeof a.order === 'number' && typeof b.order === 'number') {
+        return a.order - b.order;
+      }
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA && timeB && timeA !== timeB) {
+        return timeA - timeB;
+      }
+      return 0;
+    });
 
     setEntries(fetchedEntries);
   };
@@ -719,11 +738,17 @@ export default function Archive() {
       }
     }
 
+    const currentFolderEntries = entries.filter(e => e.folderId === selectedFolder.id && e.archiveYearId === selectedYear.id);
+    const nextOrder = currentFolderEntries.length > 0 
+      ? Math.max(...currentFolderEntries.map(e => (typeof e.order === 'number' ? e.order : 0))) + 1 
+      : 0;
+
     const entryData: any = {
       archiveYearId: selectedYear.id,
       folderId: selectedFolder.id,
       data: entryFormData,
-      createdAt: new Date().toISOString()
+      order: editingEntry?.order !== undefined ? editingEntry.order : nextOrder,
+      createdAt: editingEntry?.createdAt || new Date().toISOString()
     };
 
     if (selectedFolder.subFolders && selectedFolder.subFolders.length > 0) {
@@ -774,7 +799,10 @@ export default function Archive() {
         updatedEntries = updatedEntries.map(e => e.id === editingEntry.id ? { 
           ...e, 
           data: entryFormData,
-          subFolder: editingEntry.subFolder || (selectedFolder.subFolders && selectedFolder.subFolders.length > 0 ? (selectedSubFolder || selectedFolder.subFolders[0]) : undefined)
+          subFolder: editingEntry.subFolder || (selectedFolder.subFolders && selectedFolder.subFolders.length > 0 ? (selectedSubFolder || selectedFolder.subFolders[0]) : undefined),
+          order: editingEntry.order !== undefined ? editingEntry.order : e.order,
+          createdAt: editingEntry.createdAt || e.createdAt,
+          updatedAt: new Date().toISOString()
         } : e);
       } else {
         const newEntry: ArchiveEntry = {
@@ -798,6 +826,12 @@ export default function Archive() {
           data: entryFormData,
           updatedAt: new Date().toISOString()
         };
+        if (editingEntry.createdAt) {
+          updatePayload.createdAt = editingEntry.createdAt;
+        }
+        if (editingEntry.order !== undefined) {
+          updatePayload.order = editingEntry.order;
+        }
         if (selectedFolder.subFolders && selectedFolder.subFolders.length > 0) {
           updatePayload.subFolder = editingEntry.subFolder || selectedSubFolder || selectedFolder.subFolders[0];
         }
@@ -1211,13 +1245,20 @@ export default function Archive() {
       ? (selectedSubFolder || selectedFolder.subFolders[0])
       : undefined;
 
-    const newEntries: ArchiveEntry[] = uploadPreview.map(itemData => ({
-      id: 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    const currentFolderEntries = entries.filter(e => e.folderId === selectedFolder.id && e.archiveYearId === selectedYear.id);
+    const startOrder = currentFolderEntries.length > 0 
+      ? Math.max(...currentFolderEntries.map(e => (typeof e.order === 'number' ? e.order : 0))) + 1 
+      : 0;
+
+    const baseTime = Date.now();
+    const newEntries: ArchiveEntry[] = uploadPreview.map((itemData, idx) => ({
+      id: 'entry_' + (baseTime + idx) + '_' + Math.random().toString(36).substr(2, 5),
       archiveYearId: selectedYear.id,
       folderId: selectedFolder.id,
       subFolder: targetSubFolder,
       data: itemData,
-      createdAt: new Date().toISOString()
+      order: startOrder + idx,
+      createdAt: new Date(baseTime + idx * 25).toISOString()
     }));
 
     // If importing into office_bearers, update selectedYear.roles as well
@@ -1306,41 +1347,25 @@ export default function Archive() {
     return { isYear: false, num: -Infinity, raw: str };
   };
 
-  // Find year/date field in folder if sortField is not explicitly set
+  // Only return an active sort if the user explicitly clicked a column header
   const getActiveSortField = (): { fieldId: string; isYear: boolean } | null => {
-    if (sortField) {
-      const fieldObj = selectedFolder?.fields.find(f => f.id === sortField || f.name === sortField);
-      const isYear = fieldObj 
-        ? /^(kum|year|date)$/i.test(fieldObj.name) || fieldObj.name.toLowerCase().includes('kum') || fieldObj.name.toLowerCase().includes('year') || fieldObj.type === 'date' 
-        : false;
-      return { fieldId: sortField, isYear };
-    }
+    if (!sortField || !selectedFolder) return null;
 
-    if (!selectedFolder || selectedFolder.fields.length === 0) return null;
-
-    // 1. Look for explicit field name containing 'kum', 'year', 'date'
-    const yearField = selectedFolder.fields.find(f => {
-      const n = f.name.trim().toLowerCase();
-      const id = f.id.trim().toLowerCase();
-      return (
-        n === 'kum' || n === 'year' || n === 'date' || 
-        id === 'kum' || id === 'year' || id === 'date' ||
-        n.includes('kum') || n.includes('year') || f.type === 'date'
-      );
-    });
-
-    if (yearField) {
-      return { fieldId: yearField.id, isYear: true };
-    }
-
-    // 2. Fallback to the first column (e.g. Kum / Year in imported spreadsheets)
-    return { fieldId: selectedFolder.fields[0].id, isYear: false };
+    const fieldObj = selectedFolder.fields.find(f => f.id === sortField || f.name === sortField);
+    const isYear = fieldObj 
+      ? /^(kum|year|date)$/i.test(fieldObj.name) || fieldObj.name.toLowerCase().includes('kum') || fieldObj.name.toLowerCase().includes('year') || fieldObj.type === 'date' 
+      : false;
+    return { fieldId: sortField, isYear };
   };
 
   const handleSort = (fieldId: string) => {
-    const active = getActiveSortField();
-    if (active?.fieldId === fieldId) {
-      setSortDirection(prev => (prev === 'desc' ? 'asc' : 'desc'));
+    if (sortField === fieldId) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        // Third click toggles sort off and reverts to natural entry order as entered by the admin
+        setSortField(null);
+      }
     } else {
       setSortField(fieldId);
       const fieldObj = selectedFolder?.fields.find(f => f.id === fieldId);
@@ -1395,7 +1420,7 @@ export default function Archive() {
       });
     }
 
-    // Apply Sorting: latest years at the top, oldest year at the bottom by default
+    // Apply Sorting: only if user explicitly requested a sort column
     const activeSort = getActiveSortField();
     if (activeSort) {
       const targetId = activeSort.fieldId;
@@ -1429,6 +1454,19 @@ export default function Archive() {
         return sortDirection === 'desc'
           ? strB.localeCompare(strA, undefined, { numeric: true, sensitivity: 'base' })
           : strA.localeCompare(strB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+    } else {
+      // Natural order: strictly as entered by the admin (no automatic alphabetical sorting)
+      folderEntries.sort((a, b) => {
+        if (typeof a.order === 'number' && typeof b.order === 'number') {
+          return a.order - b.order;
+        }
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeA && timeB && timeA !== timeB) {
+          return timeA - timeB;
+        }
+        return 0;
       });
     }
 
@@ -1680,6 +1718,19 @@ export default function Archive() {
                           </button>
                         )}
                       </div>
+
+                      {/* Active Column Sort Indicator & Reset to Admin Entry Order Button */}
+                      {sortField && (
+                        <button 
+                          onClick={() => setSortField(null)}
+                          className="bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider font-sans flex items-center gap-1.5 transition shadow-sm"
+                          title="Click to clear column sort and restore admin entry order"
+                        >
+                          <ArrowUpDown className="w-3 h-3 text-amber-700" />
+                          <span>Sorted: {selectedFolder?.fields.find(f => f.id === sortField)?.name || sortField} ({sortDirection === 'asc' ? 'A→Z' : 'Z→A'})</span>
+                          <span className="text-amber-700 hover:text-amber-950 font-normal underline ml-0.5">Reset</span>
+                        </button>
+                      )}
 
                       {/* Excel (.xlsx) Download Button */}
                       <button 

@@ -216,6 +216,7 @@ export interface ArchiveEntry {
   folderId: string;
   subFolder?: string; // Sub-folder name (e.g. 'Krismas', 'Kumthar', 'Good Friday & Easter')
   data: Record<string, any>;
+  order?: number;
   createdAt?: string;
   updatedAt?: string;
 }
