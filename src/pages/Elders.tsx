@@ -3,7 +3,7 @@ import { MapPin, Phone, Plus, X, Pencil, Trash2, Upload, GripVertical } from 'lu
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { Upa } from '../types';
-import { uploadImageToImgbb } from '../lib/imgbb';
+import { uploadImage } from '../lib/storage';
 import { useAuth } from '../lib/auth';
 import { PhoneLink } from '../components/PhoneLink';
 
@@ -166,7 +166,7 @@ export default function Elders() {
     try {
       let finalImageUrl = imageUrl;
       if (selectedFile) {
-        finalImageUrl = await uploadImageToImgbb(selectedFile);
+        finalImageUrl = await uploadImage(selectedFile, 'elders');
       }
 
       const upaData: any = { name, bial, phone, bio, imageUrl: finalImageUrl };

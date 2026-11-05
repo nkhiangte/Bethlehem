@@ -6,7 +6,7 @@ import { BookOpen, Edit2, Save, FileText, History, RefreshCw, Loader2, Image as 
 import DOMPurify from 'dompurify';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { useBackButton } from '../hooks/useBackButton';
-import { uploadImageToImgbb } from '../lib/imgbb';
+import { uploadImage } from '../lib/storage';
 import { ShareButton, extractSentences } from '../components/ShareButton';
 import { resolveThumbnailUrl, updateDocumentMetadata } from '../lib/seo';
 
@@ -148,7 +148,7 @@ export default function About() {
 
     try {
       setUploadingImage(true);
-      const url = await uploadImageToImgbb(file);
+      const url = await uploadImage(file, 'about');
       // Append image tag to content
       setEditContent(prev => prev + `<p><img src="${url}" alt="Church History Image" class="rounded-xl my-4 max-h-96 object-cover mx-auto" /></p>`);
     } catch (err: any) {

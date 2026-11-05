@@ -3,7 +3,7 @@ import { MapPin, Phone, Users, Home, Search, ChevronRight, Plus, X, Pencil, Tras
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Upa, Member } from '../types';
-import { uploadImageToImgbb } from '../lib/imgbb';
+import { uploadImage } from '../lib/storage';
 import { useAuth } from '../lib/auth';
 import Papa from 'papaparse';
 import { PhoneLink } from '../components/PhoneLink';
@@ -155,12 +155,12 @@ export default function UpaBial() {
     try {
       let finalImageUrl = elderImageUrl;
       if (selectedFile) {
-        finalImageUrl = await uploadImageToImgbb(selectedFile);
+        finalImageUrl = await uploadImage(selectedFile, 'upabial');
       }
 
       let finalMapImageUrl = mapImageUrl;
       if (selectedMapFile) {
-        finalMapImageUrl = await uploadImageToImgbb(selectedMapFile);
+        finalMapImageUrl = await uploadImage(selectedMapFile, 'upabial-maps');
       }
 
       if (!finalMapImageUrl) {

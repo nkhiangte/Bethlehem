@@ -4,7 +4,7 @@ import { collection, getDocs, addDoc, setDoc, deleteDoc, doc, query, orderBy } f
 import { useAuth } from '../lib/auth';
 import { GalleryImage, GalleryFolder } from '../types';
 import { Image as ImageIcon, Plus, Trash2, X, Upload, Folder, FolderPlus, ChevronRight, ExternalLink, Link as LinkIcon, Pencil, Eye } from 'lucide-react';
-import { uploadImageToImgbb } from '../lib/imgbb';
+import { uploadImage } from '../lib/storage';
 import { parseGoogleDriveUrl } from '../lib/drive';
 
 import { useBackButton } from '../hooks/useBackButton';
@@ -190,7 +190,7 @@ export default function Gallery() {
         setUploadProgress({ current: i + 1, total: selectedFiles.length });
         const item = selectedFiles[i];
         try {
-          const imageUrl = await uploadImageToImgbb(item.file);
+          const imageUrl = await uploadImage(item.file, 'gallery');
           const imageData = {
             title: item.title.trim() || 'Untitled',
             imageUrl,

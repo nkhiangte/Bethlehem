@@ -11,6 +11,7 @@ import { useBackButton } from '../hooks/useBackButton';
 import { ShareButton, extractSentences } from '../components/ShareButton';
 import { resolveThumbnailUrl, updateDocumentMetadata } from '../lib/seo';
 import { buildWeeklyPackages, formatTimeDisplay, getCurrentChurchWeekRange, formatDateRange } from '../lib/utils';
+import { uploadImage } from '../lib/storage';
 
 export default function Home() {
   const [searchParams] = useSearchParams();
@@ -142,30 +143,7 @@ export default function Home() {
   };
 
   const uploadToImgBB = async (file: File): Promise<string> => {
-    const apiKey = import.meta.env.VITE_IMGBB_API_KEY;
-    if (!apiKey) {
-      throw new Error("ImgBB API key is not configured. Please add VITE_IMGBB_API_KEY to secrets.");
-    }
-
-    const formData = new FormData();
-    formData.append('image', file);
-
-    const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData?.error?.message || `ImgBB upload failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data && data.data && data.data.url) {
-      return data.data.url;
-    } else {
-      throw new Error("Invalid response format from ImgBB API");
-    }
+    return uploadImage(file, 'news');
   };
 
   const handleFeaturedImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -495,11 +473,6 @@ export default function Home() {
             {/* Featured Image Upload Field */}
             <div>
               <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest mb-1.5">Featured Image (Optional)</label>
-              {!import.meta.env.VITE_IMGBB_API_KEY && (
-                <div className="mb-3 p-3 bg-amber-50 text-amber-800 text-xs rounded-xl border border-amber-200">
-                  ⚠️ <strong>ImgBB API Key is missing!</strong> Please add <code>VITE_IMGBB_API_KEY</code> to your secrets in Settings to enable image uploads.
-                </div>
-              )}
               {featuredImage ? (
                 <div className="relative inline-block rounded-2xl overflow-hidden border border-[#ecece0] bg-stone-50 max-w-md">
                   <img src={featuredImage} alt="Featured preview" className="max-h-48 object-cover rounded-2xl" referrerPolicy="no-referrer" />
@@ -517,7 +490,7 @@ export default function Home() {
                   {uploadingFeatured ? (
                     <div className="flex flex-col items-center gap-2">
                       <Loader2 className="w-6 h-6 animate-spin text-[#5A5A40]" />
-                      <span className="text-xs text-stone-500">Uploading featured image to ImgBB...</span>
+                      <span className="text-xs text-stone-500">Uploading image to storage...</span>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-1 text-center">
@@ -530,7 +503,7 @@ export default function Home() {
                     type="file"
                     accept="image/*"
                     onChange={handleFeaturedImageUpload}
-                    disabled={uploadingFeatured || !import.meta.env.VITE_IMGBB_API_KEY}
+                    disabled={uploadingFeatured}
                     className="hidden"
                   />
                 </label>
@@ -541,14 +514,13 @@ export default function Home() {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest">Content</label>
-                {import.meta.env.VITE_IMGBB_API_KEY && (
-                  <div>
-                    <button
-                      type="button"
-                      disabled={uploadingInline}
-                      onClick={() => inlineFileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 bg-white border border-[#ecece0] text-[#5A5A40] hover:bg-stone-50 transition px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider"
-                    >
+                <div>
+                  <button
+                    type="button"
+                    disabled={uploadingInline}
+                    onClick={() => inlineFileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 bg-white border border-[#ecece0] text-[#5A5A40] hover:bg-stone-50 transition px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider"
+                  >
                       {uploadingInline ? (
                         <Loader2 className="w-3 h-3 animate-spin" />
                       ) : (
@@ -564,8 +536,7 @@ export default function Home() {
                       className="hidden"
                     />
                   </div>
-                )}
-              </div>
+                </div>
               <RichTextEditor
                 value={newContent}
                 onChange={setNewContent}
@@ -669,7 +640,7 @@ export default function Home() {
                           type="file"
                           accept="image/*"
                           onChange={handleEditFeaturedImageUpload}
-                          disabled={uploadingEditFeatured || !import.meta.env.VITE_IMGBB_API_KEY}
+                          disabled={uploadingEditFeatured}
                           className="hidden"
                         />
                       </label>
@@ -680,30 +651,28 @@ export default function Home() {
                   <div>
                     <div className="flex justify-between items-center mb-1.5">
                       <label className="block text-[10px] uppercase font-bold text-stone-500 tracking-widest">Content</label>
-                      {import.meta.env.VITE_IMGBB_API_KEY && (
-                        <div>
-                          <button
-                            type="button"
-                            disabled={uploadingEditInline}
-                            onClick={() => editInlineFileInputRef.current?.click()}
-                            className="flex items-center gap-1.5 bg-white border border-[#ecece0] text-[#5A5A40] hover:bg-stone-50 transition px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider"
-                          >
-                            {uploadingEditInline ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <ImageIcon className="w-3 h-3" />
-                            )}
-                            {uploadingEditInline ? 'Inserting...' : 'Insert Image'}
-                          </button>
-                          <input
-                            type="file"
-                            ref={editInlineFileInputRef}
-                            onChange={handleEditInlineImageUpload}
-                            accept="image/*"
-                            className="hidden"
-                          />
-                        </div>
-                      )}
+                      <div>
+                        <button
+                          type="button"
+                          disabled={uploadingEditInline}
+                          onClick={() => editInlineFileInputRef.current?.click()}
+                          className="flex items-center gap-1.5 bg-white border border-[#ecece0] text-[#5A5A40] hover:bg-stone-50 transition px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold tracking-wider"
+                        >
+                          {uploadingEditInline ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-3 h-3" />
+                          )}
+                          {uploadingEditInline ? 'Inserting...' : 'Insert Image'}
+                        </button>
+                        <input
+                          type="file"
+                          ref={editInlineFileInputRef}
+                          onChange={handleEditInlineImageUpload}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                      </div>
                     </div>
                     <RichTextEditor
                       value={editContent}
