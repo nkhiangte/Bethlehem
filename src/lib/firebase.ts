@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import appletConfig from '../../firebase-applet-config.json';
 
@@ -24,9 +24,16 @@ export const app = isFirebaseConfigured
 
 export const auth = isFirebaseConfigured && app ? getAuth(app) : null;
 
-export const db = isFirebaseConfigured && app
-  ? (databaseId ? getFirestore(app, databaseId) : getFirestore(app))
-  : null;
+let dbInstance: Firestore | null = null;
+if (isFirebaseConfigured && app) {
+  try {
+    dbInstance = initializeFirestore(app, { ignoreUndefinedProperties: true }, databaseId);
+  } catch {
+    dbInstance = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
+  }
+}
+
+export const db = dbInstance;
 
 export const storage = isFirebaseConfigured && app ? getStorage(app) : null;
 

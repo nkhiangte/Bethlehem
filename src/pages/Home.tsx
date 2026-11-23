@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { db, isFirebaseConfigured } from '../lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, limit, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, deleteField, doc, query, orderBy, serverTimestamp, limit, where } from 'firebase/firestore';
 import { useAuth } from '../lib/auth';
 import { NewsArticle, WeeklySchedulePackage } from '../types';
 import { Newspaper, Plus, Trash2, Calendar, FileText, Image as ImageIcon, Loader2, X, Upload, Pencil, Save, ChevronDown, ChevronUp, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -183,11 +183,11 @@ export default function Home() {
     e.preventDefault();
     if (!newTitle.trim() || !newContent.trim()) return;
 
-    const newArticle = {
+    const newArticle: Omit<NewsArticle, 'id'> = {
       title: newTitle.trim(),
       content: newContent,
       date: new Date().toISOString(),
-      imageUrl: featuredImage || undefined,
+      ...(featuredImage ? { imageUrl: featuredImage } : {}),
     };
 
     if (!isFirebaseConfigured || !db) {
@@ -209,9 +209,9 @@ export default function Home() {
       setNewTitle('');
       setNewContent('');
       setFeaturedImage('');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding news to Firestore:", error);
-      alert("Failed to save news to Firestore.");
+      alert(`Failed to save news to Firestore${error?.message ? `: ${error.message}` : '.'}`);
     }
   };
 
@@ -285,14 +285,14 @@ export default function Home() {
     e.preventDefault();
     if (!editingId || !editTitle.trim() || !editContent.trim()) return;
 
-    const updatedArticle = {
+    const localUpdatedFields: Partial<NewsArticle> = {
       title: editTitle.trim(),
       content: editContent,
       imageUrl: editFeaturedImage || undefined,
     };
 
     if (!isFirebaseConfigured || !db) {
-      const currentNews = news.map(n => n.id === editingId ? { ...n, ...updatedArticle } : n);
+      const currentNews = news.map(n => n.id === editingId ? { ...n, ...localUpdatedFields } : n);
       localStorage.setItem('bethlehem_news', JSON.stringify(currentNews));
       setNews(currentNews);
       handleCancelEdit();
@@ -301,12 +301,17 @@ export default function Home() {
     }
 
     try {
-      await updateDoc(doc(db, 'news', editingId), updatedArticle);
-      setNews(news.map(n => n.id === editingId ? { ...n, ...updatedArticle } : n));
+      const firestorePayload: Record<string, any> = {
+        title: editTitle.trim(),
+        content: editContent,
+        imageUrl: editFeaturedImage ? editFeaturedImage : deleteField(),
+      };
+      await updateDoc(doc(db, 'news', editingId), firestorePayload);
+      setNews(news.map(n => n.id === editingId ? { ...n, ...localUpdatedFields } : n));
       handleCancelEdit();
     } catch (error: any) {
       console.error("Error updating news in Firestore:", error);
-      alert("Failed to update news. Please try again.");
+      alert(`Failed to update news${error?.message ? `: ${error.message}` : '. Please try again.'}`);
     }
   };
 
